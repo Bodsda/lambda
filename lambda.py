@@ -1,6 +1,7 @@
 """Module to detach, delete and re-create permission policies for s3 bucket and s3 bucket object access"""
 
-#from sys import getsizeof
+from sys import getsizeof
+from itertools import zip_longest
 import logging
 import json
 
@@ -52,52 +53,75 @@ def generate_resource_list(s3buckets, objects=False):
 
 def generate_policy(s3buckets, objects=False):
     """generate_policy takes a list of s3 buckets and optionally a parameter to indicate if you want the resultant policy data to be for buckets or objects."""
+    # ipaas_policy template is 343 bytes when the dict is represented as a string
+    policies = []
     if not objects:
         resource_list = generate_resource_list(s3buckets)
-        ipaas_policy = {
-                "Version": "2012-10-17",
-                "Statement": [
-                    {
-                        "Sid": "AccountBucketPermissions",
-                        "Effect": "Allow",
-                        "Action": [
-                            "s3:PutLifecycleConfiguration",
-                            "s3:ListBucketMultipartUploads",
-                            "s3:ListBucket",
-                            "s3:GetLifecycleConfiguration",
-                            "s3:GetBucketLocation",
-                            "s3:PutLifecycleConfiguration",
-                        ],
-                        "Resource": resource_list,
-                    },
-                ],
-            }
+        tmp_list1 = []
+        while len(resource_list) > 0:
+            tmp_list2 = []
+            while getsizeof(tmp_list2) < (6000 - 343):
+                for i in range(length(resource_list)):
+                    tmp_list2.append(resource_list.pop())
+            tmp_list1.append(tmp_list2)
+
+        for item in tmp_list1:
+            ipaas_policy = {
+                    "Version": "2012-10-17",
+                    "Statement": [
+                        {
+                            "Sid": "AccountBucketPermissions",
+                            "Effect": "Allow",
+                            "Action": [
+                                "s3:PutLifecycleConfiguration",
+                                "s3:ListBucketMultipartUploads",
+                                "s3:ListBucket",
+                                "s3:GetLifecycleConfiguration",
+                                "s3:GetBucketLocation",
+                                "s3:PutLifecycleConfiguration",
+                            ],
+                            "Resource": item,
+                        },
+                    ],
+                }
+            policies.append(ipaas_policy)
 
     else:
+    # ipaas_policy template is 364 bytes when the dict is represented as a string
         resource_list = generate_resource_list(s3buckets, objects=True)
-        ipaas_policy = {
-                "Version": "2012-10-17",
-                "Statement": [
-                    {
-                        "Sid": "AccountObjectPermissions",
-                        "Effect": "Allow",
-                        "Action": [
-                            "s3:PutObjectAcl",
-                            "s3:PutObject",
-                            "s3:GetObjectVersionAcl",
-                            "s3:GetObjectVersion",
-                            "s3:GetObjectAcl",
-                            "s3:GetObject",
-                            "s3:DeleteObjectVersion",
-                            "s3:DeleteObject",
-                            "s3:AbortMultipartUpload",
-                        ],
-                        "Resource": resource_list,
-                    },
-                ],
-            }
+        tmp_list1 = []
+        while len(resource_list) > 0:
+            tmp_list2 = []
+            while getsizeof(tmp_list2) < (6000 - 343):
+                for i in range(length(resource_list)):
+                    tmp_list2.append(resource_list.pop())
+            tmp_list1.append(tmp_list2)
 
-    return ipaas_policy
+        for item in tmp_list1:
+            ipaas_policy = {
+                    "Version": "2012-10-17",
+                    "Statement": [
+                        {
+                            "Sid": "AccountObjectPermissions",
+                            "Effect": "Allow",
+                            "Action": [
+                                "s3:PutObjectAcl",
+                                "s3:PutObject",
+                                "s3:GetObjectVersionAcl",
+                                "s3:GetObjectVersion",
+                                "s3:GetObjectAcl",
+                                "s3:GetObject",
+                                "s3:DeleteObjectVersion",
+                                "s3:DeleteObject",
+                                "s3:AbortMultipartUpload",
+                            ],
+                            "Resource": item,
+                        },
+                    ],
+                }
+            policies.append(ipaas_policy)
+
+    return policies
 
 def detach_role_policy(role_name, policy_arn):
     """detach_role_policy takes a role name and a policy ARN as parameters and detaches that policy from that role."""
@@ -173,28 +197,38 @@ def lambda_handler(event, context):
 
 
     ipaas_write_buckets = get_buckets(buckets, "write")
-    ipaas_write_buckets_policy = generate_policy(ipaas_write_buckets)
-    ipaas_write_objects_policy = generate_policy(ipaas_write_buckets, objects=True)
+    ipaas_write_buckets_policies = generate_policy(ipaas_write_buckets)
+    ipaas_write_objects_policies = generate_policy(ipaas_write_buckets, objects=True)
 
     ipaas_read_buckets = get_buckets(buckets, "read")
-    ipaas_read_buckets_policy = generate_policy(ipaas_read_buckets)
-    ipaas_read_objects_policy = generate_policy(ipaas_read_buckets, objects=True)
+    ipaas_read_buckets_policies = generate_policy(ipaas_read_buckets)
+    ipaas_read_objects_policies = generate_policy(ipaas_read_buckets, objects=True)
 
 
     detach_role_policy(role_name, write_buckets_policy_arn)
     detach_role_policy(role_name, write_objects_policy_arn)
     delete_policy(write_buckets_policy_arn)
     delete_policy(write_objects_policy_arn)
-    create_policy("dis-managed-ipaas-write-buckets-policy", "Write bucket policy for ipaas managed by dis lambda", ipaas_write_buckets_policy)
-    create_policy("dis-managed-ipaas-write-objects-policy", "Write objects policy for ipaas managed by dis lambda", ipaas_write_objects_policy)
-    role.attach_policy(PolicyArn=write_buckets_policy_arn)
-    role.attach_policy(PolicyArn=write_objects_policy_arn)
+    count = 0
+    for buckets_policy, objects_policy in zip_longest(ipaas_write_buckets_policies, ipaas_write_objects_policies):
+        count += 1
+        if buckets_policy not None:
+            create_policy("dis-managed-ipaas-write-buckets-policy-{}".format(count), "Write bucket policy for ipaas managed by dis lambda #{}".format(count), buckets_policy)
+            role.attach_policy(PolicyArn="arn:aws:iam::" + acc_id + ":policy/dis-managed-ipaas-write-buckets-policy-{}".format(count))
+        if objects_policy not None:
+            create_policy("dis-managed-ipaas-write-objects-policy-{}".format(count), "Write objects policy for ipaas managed by dis lambda #{}".format(count), objects_policy)
+            role.attach_policy(PolicyArn="arn:aws:iam::" + acc_id + ":policy/dis-managed-ipaas-write-objects-policy-{}".format(count))
 
     detach_role_policy(role_name, read_buckets_policy_arn)
     detach_role_policy(role_name, read_objects_policy_arn)
     delete_policy(read_buckets_policy_arn)
     delete_policy(read_objects_policy_arn)
-    create_policy("dis-managed-ipaas-read-buckets-policy", "Read bucket policy for ipaas managed by dis lambda", ipaas_read_buckets_policy)
-    create_policy("dis-managed-ipaas-read-objects-policy", "Read objects policy for ipaas managed by dis lambda", ipaas_read_objects_policy)
-    role.attach_policy(PolicyArn=read_buckets_policy_arn)
-    role.attach_policy(PolicyArn=read_objects_policy_arn)
+    count = 0
+    for buckets_policy, objects_policy in zip_longest(ipaas_read_buckets_policies, ipaas_read_objects_policies):
+        count += 1
+        if buckets_policy not None:
+            create_policy("dis-managed-ipaas-read-buckets-policy-{}".format(count), "Read bucket policy for ipaas managed by dis lambda #{}".format(count), buckets_policy)
+            role.attach_policy(PolicyArn="arn:aws:iam::" + acc_id + ":policy/dis-managed-ipaas-read-buckets-policy-{}".format(count))
+        if objects_policy not None:
+            create_policy("dis-managed-ipaas-read-objects-policy-{}".format(count), "Read objects policy for ipaas managed by dis lambda #{}".format(count), objects_policy)
+            role.attach_policy(PolicyArn="arn:aws:iam::" + acc_id + ":policy/dis-managed-ipaas-read-objects-policy-{}".format(count))
