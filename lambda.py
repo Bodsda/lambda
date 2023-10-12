@@ -212,10 +212,10 @@ def lambda_handler(event, context):
     count = 0
     for buckets_policy, objects_policy in zip_longest(ipaas_write_buckets_policies, ipaas_write_objects_policies):
         count += 1
-        if buckets_policy not None:
+        if buckets_policy != None:
             create_policy("dis-managed-ipaas-write-buckets-policy-{}".format(count), "Write bucket policy for ipaas managed by dis lambda #{}".format(count), buckets_policy)
             role.attach_policy(PolicyArn="arn:aws:iam::" + acc_id + ":policy/dis-managed-ipaas-write-buckets-policy-{}".format(count))
-        if objects_policy not None:
+        if objects_policy != None:
             create_policy("dis-managed-ipaas-write-objects-policy-{}".format(count), "Write objects policy for ipaas managed by dis lambda #{}".format(count), objects_policy)
             role.attach_policy(PolicyArn="arn:aws:iam::" + acc_id + ":policy/dis-managed-ipaas-write-objects-policy-{}".format(count))
 
@@ -226,9 +226,9 @@ def lambda_handler(event, context):
     count = 0
     for buckets_policy, objects_policy in zip_longest(ipaas_read_buckets_policies, ipaas_read_objects_policies):
         count += 1
-        if buckets_policy not None:
+        if buckets_policy != None:
             create_policy("dis-managed-ipaas-read-buckets-policy-{}".format(count), "Read bucket policy for ipaas managed by dis lambda #{}".format(count), buckets_policy)
             role.attach_policy(PolicyArn="arn:aws:iam::" + acc_id + ":policy/dis-managed-ipaas-read-buckets-policy-{}".format(count))
-        if objects_policy not None:
+        if objects_policy != None:
             create_policy("dis-managed-ipaas-read-objects-policy-{}".format(count), "Read objects policy for ipaas managed by dis lambda #{}".format(count), objects_policy)
             role.attach_policy(PolicyArn="arn:aws:iam::" + acc_id + ":policy/dis-managed-ipaas-read-objects-policy-{}".format(count))
