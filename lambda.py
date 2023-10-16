@@ -223,8 +223,11 @@ def lambda_handler(event, context):
 
     attached_policies = get_role_policies(role_name, policy_prefix)
     for policy in attached_policies:
-        detach_role_policy(role_name, policy["PolicyArn"])
-        delete_policy(policy["PolicyArn"])
+        if detach_role_policy(role_name, policy["PolicyArn"]) == 0:
+            delete_policy(policy["PolicyArn"])
+        else:
+            logger.error("Detach role policy unsuccessful. Will not delete policy: %s." % policy["PolicyName")
+
 
     count = 0
     for buckets_policy, objects_policy in zip_longest(ipaas_write_buckets_policies, ipaas_write_objects_policies):
