@@ -226,7 +226,7 @@ def lambda_handler(event, context):
         if detach_role_policy(role_name, policy["PolicyArn"]) == 0:
             delete_policy(policy["PolicyArn"])
         else:
-            logger.error("Detach role policy unsuccessful. Will not delete policy: %s." % policy["PolicyName")
+            logger.error("Detach role policy unsuccessful. Will not delete policy: %s.", policy["PolicyName"])
 
 
     count = 0
