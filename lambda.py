@@ -61,7 +61,7 @@ def generate_policy(s3buckets, objects=False):
         while len(resource_list) > 0:
             tmp_list2 = []
             while getsizeof(tmp_list2) < (6000 - 343):
-                for i in range(length(resource_list)):
+                for i in range(len(resource_list)):
                     tmp_list2.append(resource_list.pop())
             tmp_list1.append(tmp_list2)
 
@@ -93,7 +93,7 @@ def generate_policy(s3buckets, objects=False):
         while len(resource_list) > 0:
             tmp_list2 = []
             while getsizeof(tmp_list2) < (6000 - 343):
-                for i in range(length(resource_list)):
+                for i in range(len(resource_list)):
                     tmp_list2.append(resource_list.pop())
             tmp_list1.append(tmp_list2)
 
@@ -125,6 +125,7 @@ def generate_policy(s3buckets, objects=False):
 
 def detach_role_policy(role_name, policy_arn):
     """detach_role_policy takes a role name and a policy ARN as parameters and detaches that policy from that role."""
+    response = ""
     try:
         response = iam.detach_role_policy(RoleName=role_name, PolicyArn=policy_arn)
     except ClientError as error_client:
@@ -140,6 +141,7 @@ def detach_role_policy(role_name, policy_arn):
 
 def delete_policy(policy_arn):
     """delete_policy takes a policy ARN as a parameter and deletes that policy."""
+    response = ""
     try:
         response = iam.list_policy_versions(PolicyArn=policy_arn)
         for policy_version in response["Versions"]:
@@ -162,6 +164,7 @@ def delete_policy(policy_arn):
 
 def create_policy(name, description, policy):
     """create_policy takes a policy name, description, and policy data object (from generate_policy()) and creates a policy via iam."""
+    response=""
     try:
         response = iam.create_policy(
             PolicyName=name,
@@ -212,10 +215,10 @@ def lambda_handler(event, context):
     count = 0
     for buckets_policy, objects_policy in zip_longest(ipaas_write_buckets_policies, ipaas_write_objects_policies):
         count += 1
-        if buckets_policy != None:
+        if buckets_policy is not None:
             create_policy("dis-managed-ipaas-write-buckets-policy-{}".format(count), "Write bucket policy for ipaas managed by dis lambda #{}".format(count), buckets_policy)
             role.attach_policy(PolicyArn="arn:aws:iam::" + acc_id + ":policy/dis-managed-ipaas-write-buckets-policy-{}".format(count))
-        if objects_policy != None:
+        if objects_policy is not None:
             create_policy("dis-managed-ipaas-write-objects-policy-{}".format(count), "Write objects policy for ipaas managed by dis lambda #{}".format(count), objects_policy)
             role.attach_policy(PolicyArn="arn:aws:iam::" + acc_id + ":policy/dis-managed-ipaas-write-objects-policy-{}".format(count))
 
@@ -226,9 +229,9 @@ def lambda_handler(event, context):
     count = 0
     for buckets_policy, objects_policy in zip_longest(ipaas_read_buckets_policies, ipaas_read_objects_policies):
         count += 1
-        if buckets_policy != None:
+        if buckets_policy is not None:
             create_policy("dis-managed-ipaas-read-buckets-policy-{}".format(count), "Read bucket policy for ipaas managed by dis lambda #{}".format(count), buckets_policy)
             role.attach_policy(PolicyArn="arn:aws:iam::" + acc_id + ":policy/dis-managed-ipaas-read-buckets-policy-{}".format(count))
-        if objects_policy != None:
+        if objects_policy is not None:
             create_policy("dis-managed-ipaas-read-objects-policy-{}".format(count), "Read objects policy for ipaas managed by dis lambda #{}".format(count), objects_policy)
             role.attach_policy(PolicyArn="arn:aws:iam::" + acc_id + ":policy/dis-managed-ipaas-read-objects-policy-{}".format(count))
