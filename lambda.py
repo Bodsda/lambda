@@ -38,6 +38,22 @@ def get_buckets(s3buckets, rw_tag):
 
     return ipaas_buckets
 
+def get_role_policies(role_name, role_prefix):
+    """get_role_polciies accepts a role name and a role prefix, then returns a list of dictionary objects that contain that policy filtered by prefix"""
+
+    filtered_policies = []
+    response=""
+    try:
+        response = iam.list_attached_role_policies(RoleName=role_name)
+        for policy in response["AttachedPolicies"]:
+            if role_prefix in policy["PolicyArn"]:
+                filtered_policies.append({policy["PolicyName"]:policy["PolicyArn"]})
+    except Exception as error_exception:
+        logger.error("General Exception caught")
+        logger.error("Error: %s", error_exception)
+
+    return filtered_policies
+
 
 def generate_resource_list(s3buckets, objects=False):
     """generate_resource_list takes a list of s3 buckets and optionally a parameter to indicate if you want the resource list to return objects instead of buckets."""
@@ -191,10 +207,7 @@ def lambda_handler(event, context):
 
     resource = boto3.resource("iam")
     acc_id = boto3.client("sts").get_caller_identity().get("Account")
-    write_buckets_policy_arn = "arn:aws:iam::" + acc_id + ":policy/dis-managed-ipaas-write-buckets-policy"
-    write_objects_policy_arn = "arn:aws:iam::" + acc_id + ":policy/dis-managed-ipaas-write-objects-policy"
-    read_buckets_policy_arn = "arn:aws:iam::" + acc_id + ":policy/dis-managed-ipaas-read-buckets-policy"
-    read_objects_policy_arn = "arn:aws:iam::" + acc_id + ":policy/dis-managed-ipaas-read-objects-policy"
+    policy_prefix = "arn:aws:iam::" + acc_id + ":policy/dis-managed-ipaas"
     role_name = "dis-s3-bucket-cross-account-access"
     role = resource.Role(role_name)
 
@@ -208,30 +221,27 @@ def lambda_handler(event, context):
     ipaas_read_objects_policies = generate_policy(ipaas_read_buckets, objects=True)
 
 
-    detach_role_policy(role_name, write_buckets_policy_arn)
-    detach_role_policy(role_name, write_objects_policy_arn)
-    delete_policy(write_buckets_policy_arn)
-    delete_policy(write_objects_policy_arn)
+    attached_policies = get_role_policies(role_name, policy_prefix)
+    for policy in attached_policies:
+        detach_role_policy(role_name, policy["PolicyArn"])
+        delete_policy(policy["PolicyArn"])
+
     count = 0
     for buckets_policy, objects_policy in zip_longest(ipaas_write_buckets_policies, ipaas_write_objects_policies):
         count += 1
         if buckets_policy is not None:
-            create_policy("dis-managed-ipaas-write-buckets-policy-{}".format(count), "Write bucket policy for ipaas managed by dis lambda #{}".format(count), buckets_policy)
-            role.attach_policy(PolicyArn="arn:aws:iam::" + acc_id + ":policy/dis-managed-ipaas-write-buckets-policy-{}".format(count))
+            create_policy("%s-write-buckets-policy-%s" % (policy_prefix, count), "Write bucket policy for ipaas managed by dis lambda #%s" % count, buckets_policy)
+            role.attach_policy(PolicyArn="%s-write-buckets-policy-%s" % (policy_prefix, count))
         if objects_policy is not None:
-            create_policy("dis-managed-ipaas-write-objects-policy-{}".format(count), "Write objects policy for ipaas managed by dis lambda #{}".format(count), objects_policy)
-            role.attach_policy(PolicyArn="arn:aws:iam::" + acc_id + ":policy/dis-managed-ipaas-write-objects-policy-{}".format(count))
+            create_policy("%s-write-objects-policy-%s" % (policy_prefix, count), "Write objects policy for ipaas managed by dis lambda #%s" % count, buckets_policy)
+            role.attach_policy(PolicyArn="%s-write-objects-policy-%s" % (policy_prefix, count))
 
-    detach_role_policy(role_name, read_buckets_policy_arn)
-    detach_role_policy(role_name, read_objects_policy_arn)
-    delete_policy(read_buckets_policy_arn)
-    delete_policy(read_objects_policy_arn)
     count = 0
     for buckets_policy, objects_policy in zip_longest(ipaas_read_buckets_policies, ipaas_read_objects_policies):
         count += 1
         if buckets_policy is not None:
-            create_policy("dis-managed-ipaas-read-buckets-policy-{}".format(count), "Read bucket policy for ipaas managed by dis lambda #{}".format(count), buckets_policy)
-            role.attach_policy(PolicyArn="arn:aws:iam::" + acc_id + ":policy/dis-managed-ipaas-read-buckets-policy-{}".format(count))
+            create_policy("%s-read-buckets-policy-%s" % (policy_prefix, count), "Read bucket policy for ipaas managed by dis lambda #%s" % count, buckets_policy)
+            role.attach_policy(PolicyArn="%s-read-buckets-policy-%s" % (policy_prefix, count))
         if objects_policy is not None:
-            create_policy("dis-managed-ipaas-read-objects-policy-{}".format(count), "Read objects policy for ipaas managed by dis lambda #{}".format(count), objects_policy)
-            role.attach_policy(PolicyArn="arn:aws:iam::" + acc_id + ":policy/dis-managed-ipaas-read-objects-policy-{}".format(count))
+            create_policy("%s-read-objects-policy-%s" % (policy_prefix, count), "Read objects policy for ipaas managed by dis lambda #%s" % count, buckets_policy)
+            role.attach_policy(PolicyArn="%s-read-objects-policy-%s" % (policy_prefix, count))
