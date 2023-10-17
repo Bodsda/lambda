@@ -78,7 +78,10 @@ def generate_resource_list(s3buckets, objects=False):
 def generate_policy(s3buckets, objects=False):
     """generate_policy takes a list of s3 buckets and optionally a parameter
     to indicate if you want the resultant policy data to be for buckets or
-    objects.
+    objects. 
+
+    There is a hard limit of 6KB (or 6k characters) for individual AWS policies - uses getsizeof to monitor the size of the policy string
+    see this page for detail https://repost.aws/knowledge-center/iam-increase-policy-size 
     """
     # ipaas_policy template is 343 bytes when the dict is represented as a string
     policies = []
