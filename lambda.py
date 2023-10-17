@@ -88,11 +88,15 @@ def generate_policy(s3buckets, objects=False):
     if not objects:
         resource_list = generate_resource_list(s3buckets)
         tmp_list1 = []
-        while len(resource_list) > 0:
-            tmp_list2 = []
-            while getsizeof(tmp_list2) < (6000 - 343):
-                for i in range(len(resource_list)):
-                    tmp_list2.append(resource_list.pop())
+        tmp_list2 = []
+        for i in resource_list:
+            if getsizeof(tmp_list2) < (6000 - 343 + (getsizeof(i))):
+                tmp_list2.append(i)
+            else:
+                tmp_list1.append(tmp_list2)
+                tmp_list2 = []
+                tmp_list2.append(i)
+        if len(tmp_list2) > 0:
             tmp_list1.append(tmp_list2)
 
         for item in tmp_list1:
@@ -120,11 +124,15 @@ def generate_policy(s3buckets, objects=False):
     # ipaas_policy template is 364 bytes when the dict is represented as a string
         resource_list = generate_resource_list(s3buckets, objects=True)
         tmp_list1 = []
-        while len(resource_list) > 0:
-            tmp_list2 = []
-            while getsizeof(tmp_list2) < (6000 - 343):
-                for i in range(len(resource_list)):
-                    tmp_list2.append(resource_list.pop())
+        tmp_list2 = []
+        for i in resource_list:
+            if getsizeof(tmp_list2) < (6000 - 343 + (getsizeof(i))):
+                tmp_list2.append(i)
+            else:
+                tmp_list1.append(tmp_list2)
+                tmp_list2 = []
+                tmp_list2.append(i)
+        if len(tmp_list2) > 0:
             tmp_list1.append(tmp_list2)
 
         for item in tmp_list1:
