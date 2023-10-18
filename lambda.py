@@ -270,6 +270,7 @@ def lambda_handler(event, context):
     ipaas_write_buckets = get_buckets(buckets, "write")
     ipaas_write_buckets_policies = generate_policy(ipaas_write_buckets)
     ipaas_write_objects_policies = generate_policy(ipaas_write_buckets, objects=True)
+    logger.info(f"ipaas_write_buckets_policies={len(ipaas_write_buckets_policies)}")
 
     ipaas_read_buckets = get_buckets(buckets, "read")
     ipaas_read_buckets_policies = generate_policy(ipaas_read_buckets)
@@ -293,20 +294,27 @@ def lambda_handler(event, context):
         count += 1
         if buckets_policy is not None:
             create_policy(
-                "{policy_prefix}-write-buckets-policy-{count}",
+                f"dis-managed-ipaas-write-buckets-policy-{count}",
+                # "%s-write-buckets-policy-%s" % (policy_prefix, count),
                 "Write bucket policy for ipaas managed by \
                                   dis lambda #{count}",
                 buckets_policy,
             )
-            role.attach_policy(PolicyArn="{policy_prefix}-write-buckets-policy-{count}")
+            role.attach_policy(
+                PolicyArn=f"{policy_prefix}-write-buckets-policy-{count}"
+            )
+            # role.attach_policy(PolicyArn="%s-write-buckets-policy-%s" % (policy_prefix, count))
         if objects_policy is not None:
             create_policy(
-                "{policy_prefix}-write-objects-policy-{count}",
+                f"dis-managed-ipaas-write-objects-policy-{count}",
                 "Write objects policy for ipaas managed by \
                                   dis lambda #{count}",
-                buckets_policy,
+                objects_policy,
             )
-            role.attach_policy(PolicyArn="{policy_prefix}-write-objects-policy-{count}")
+            role.attach_policy(
+                PolicyArn=f"{policy_prefix}-write-objects-policy-{count}"
+            )
+            # role.attach_policy(PolicyArn="%s-write-objects-policy-%s" % (policy_prefix, count))
 
     count = 0
     for buckets_policy, objects_policy in zip_longest(
@@ -315,17 +323,19 @@ def lambda_handler(event, context):
         count += 1
         if buckets_policy is not None:
             create_policy(
-                "{policy_prefix}-read-buckets-policy-{count}",
+                f"dis-managed-ipaas-read-buckets-policy-{count}",
+                # "%s-read-buckets-policy-%s" % (policy_prefix, count),
                 "Read bucket policy for ipaas managed by \
                                   dis lambda #{count}",
                 buckets_policy,
             )
-            role.attach_policy(PolicyArn="{policy_prefix}-read-buckets-policy-{count}")
+            role.attach_policy(PolicyArn=f"{policy_prefix}-read-buckets-policy-{count}")
         if objects_policy is not None:
             create_policy(
-                "{policy_prefix}-read-objects-policy-{count}",
+                f"dis-managed-ipaas-read-objects-policy-{count}",
+                # "%s-read-objects-policy-%s" % (policy_prefix, count),
                 "Read objects policy for ipaas managed by \
                                   dis lambda #{count}",
                 buckets_policy,
             )
-            role.attach_policy(PolicyArn="{policy_prefix}-read-objects-policy-{count}")
+            role.attach_policy(PolicyArn=f"{policy_prefix}-read-objects-policy-{count}")
