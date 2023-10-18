@@ -1,5 +1,5 @@
-"""Module to detach, delete and re-create permission policies for s3 bucket
-and s3 bucket object access
+"""Module to detach, delete and re-create permission policies for
+s3 bucket and s3 object (files) access
 """
 from sys import getsizeof
 from itertools import zip_longest
@@ -17,6 +17,7 @@ iam = boto3.client("iam")
 logger = logging.getLogger("dis-aws-cross-account-s3-access")
 logger.setLevel(logging.INFO)
 
+
 def get_buckets(s3buckets, rw_tag):
     """get_buckets takes a list of s3 buckets and a rw_tag("read", "write")
     as parameters, and returns all buckets with that tag that is also marked
@@ -28,10 +29,12 @@ def get_buckets(s3buckets, rw_tag):
         try:
             tag_set = s3.BucketTagging(bucket.name).tag_set
         except ClientError as error_client:
-            logger.error("ClientError from botocore.exceptions raised when \
-                         attempting s3.BucketTagging().tag_set")
+            if error_client.response["Error"]["Code"] == "NoSuchTagSet":
+                logger.warning("Bucket %s has no tags assigned", bucket.name)
+                continue
             logger.error("Error: %s", error_client)
             continue
+
         except Exception as error_exception:
             logger.error("General Exception caught")
             logger.error("Error: %s", error_exception)
@@ -40,8 +43,18 @@ def get_buckets(s3buckets, rw_tag):
         for item in tag_set:
             if item["Key"] == "ipaas_transfer_enabled" and item["Value"] == rw_tag:
                 ipaas_buckets.append(bucket.name)
+            elif tag_set is not None:
+                logger.warning(
+                    "bucket %s, with tags: %s - %s not found among",
+                    bucket.name,
+                    tag_set,
+                    rw_tag,
+                )
+            else:
+                logger.warning("bucket %s, no tags found", bucket.name)
 
     return ipaas_buckets
+
 
 def get_role_policies(role_name, role_prefix):
     """get_role_polciies accepts a role name and a role prefix, then returns
@@ -52,7 +65,7 @@ def get_role_policies(role_name, role_prefix):
         response = iam.list_attached_role_policies(RoleName=role_name)
         for policy in response["AttachedPolicies"]:
             if role_prefix in policy["PolicyArn"]:
-                filtered_policies.append({policy["PolicyName"]:policy["PolicyArn"]})
+                filtered_policies.append({policy["PolicyName"]: policy["PolicyArn"]})
     except Exception as error_exception:
         logger.error("General Exception caught")
         logger.error("Error: %s", error_exception)
@@ -75,19 +88,21 @@ def generate_resource_list(s3buckets, objects=False):
 
     return resource_list
 
+
 def generate_policy(s3buckets, objects=False):
     """generate_policy takes a list of s3 buckets and optionally a parameter
     to indicate if you want the resultant policy data to be for buckets or
-    objects. 
+    objects.
 
     There is a hard limit of 6KB (or 6k characters) for individual AWS policies - uses getsizeof to monitor the size of the policy string
-    see this page for detail https://repost.aws/knowledge-center/iam-increase-policy-size 
+    see this page for detail https://repost.aws/knowledge-center/iam-increase-policy-size
     """
     # ipaas_policy template is 343 bytes when the dict is represented as a string
     policies = []
     if not objects:
         resource_list = generate_resource_list(s3buckets)
         tmp_list1 = []
+
         tmp_list2 = []
         for i in resource_list:
             if getsizeof(tmp_list2) < (6000 - 343 + (getsizeof(i))):
@@ -101,27 +116,27 @@ def generate_policy(s3buckets, objects=False):
 
         for item in tmp_list1:
             ipaas_policy = {
-                    "Version": "2012-10-17",
-                    "Statement": [
-                        {
-                            "Sid": "AccountBucketPermissions",
-                            "Effect": "Allow",
-                            "Action": [
-                                "s3:PutLifecycleConfiguration",
-                                "s3:ListBucketMultipartUploads",
-                                "s3:ListBucket",
-                                "s3:GetLifecycleConfiguration",
-                                "s3:GetBucketLocation",
-                                "s3:PutLifecycleConfiguration",
-                            ],
-                            "Resource": item,
-                        },
-                    ],
-                }
+                "Version": "2012-10-17",
+                "Statement": [
+                    {
+                        "Sid": "AccountBucketPermissions",
+                        "Effect": "Allow",
+                        "Action": [
+                            "s3:PutLifecycleConfiguration",
+                            "s3:ListBucketMultipartUploads",
+                            "s3:ListBucket",
+                            "s3:GetLifecycleConfiguration",
+                            "s3:GetBucketLocation",
+                            "s3:PutLifecycleConfiguration",
+                        ],
+                        "Resource": item,
+                    },
+                ],
+            }
             policies.append(ipaas_policy)
 
     else:
-    # ipaas_policy template is 364 bytes when the dict is represented as a string
+        # ipaas_policy template is 364 bytes when the dict is represented as a string
         resource_list = generate_resource_list(s3buckets, objects=True)
         tmp_list1 = []
         tmp_list2 = []
@@ -137,40 +152,43 @@ def generate_policy(s3buckets, objects=False):
 
         for item in tmp_list1:
             ipaas_policy = {
-                    "Version": "2012-10-17",
-                    "Statement": [
-                        {
-                            "Sid": "AccountObjectPermissions",
-                            "Effect": "Allow",
-                            "Action": [
-                                "s3:PutObjectAcl",
-                                "s3:PutObject",
-                                "s3:GetObjectVersionAcl",
-                                "s3:GetObjectVersion",
-                                "s3:GetObjectAcl",
-                                "s3:GetObject",
-                                "s3:DeleteObjectVersion",
-                                "s3:DeleteObject",
-                                "s3:AbortMultipartUpload",
-                            ],
-                            "Resource": item,
-                        },
-                    ],
-                }
+                "Version": "2012-10-17",
+                "Statement": [
+                    {
+                        "Sid": "AccountObjectPermissions",
+                        "Effect": "Allow",
+                        "Action": [
+                            "s3:PutObjectAcl",
+                            "s3:PutObject",
+                            "s3:GetObjectVersionAcl",
+                            "s3:GetObjectVersion",
+                            "s3:GetObjectAcl",
+                            "s3:GetObject",
+                            "s3:DeleteObjectVersion",
+                            "s3:DeleteObject",
+                            "s3:AbortMultipartUpload",
+                        ],
+                        "Resource": item,
+                    },
+                ],
+            }
             policies.append(ipaas_policy)
 
     return policies
+
 
 def detach_role_policy(role_name, policy_arn):
     """detach_role_policy takes a role name and a policy ARN as parameters
     and detaches that policy from that role.
     """
-    response = "" # Defining response outside the try/except due to pylint E0601
+    response = ""  # Defining response outside the try/except due to pylint E0601
     try:
         response = iam.detach_role_policy(RoleName=role_name, PolicyArn=policy_arn)
     except ClientError as error_client:
-        logger.error("ClientError from botocore.exceptions raised when \
-                attempting s3.BucketTagging().tag_set")
+        logger.error(
+            "ClientError from botocore.exceptions raised when \
+                attempting s3.BucketTagging().tag_set"
+        )
         logger.error("Error: %s", error_client)
         return (1, response)
     except Exception as error_exception:
@@ -179,6 +197,7 @@ def detach_role_policy(role_name, policy_arn):
         return (2, response)
 
     return 0
+
 
 def delete_policy(policy_arn):
     """delete_policy takes a policy ARN as a parameter and deletes that
@@ -194,8 +213,10 @@ def delete_policy(policy_arn):
             )
         response = iam.delete_policy(PolicyArn=policy_arn)
     except ClientError as error_client:
-        logger.error("ClientError from botocore.exceptions raised when \
-                attempting s3.BucketTagging().tag_set")
+        logger.error(
+            "ClientError from botocore.exceptions raised when \
+                attempting s3.BucketTagging().tag_set"
+        )
         logger.error("Error: %s", error_client)
         return (1, response)
     except Exception as error_exception:
@@ -205,11 +226,12 @@ def delete_policy(policy_arn):
 
     return 0
 
+
 def create_policy(name, description, policy):
     """create_policy takes a policy name, description, and policy data object
     (from generate_policy()) and creates a policy via iam.
     """
-    response = "" # Defining response outside the try/except due to pylint E0601
+    response = ""  # Defining response outside the try/except due to pylint E0601
     try:
         response = iam.create_policy(
             PolicyName=name,
@@ -221,8 +243,10 @@ def create_policy(name, description, policy):
             ],
         )
     except ClientError as error_client:
-        logger.error("ClientError from botocore.exceptions raised when \
-                attempting s3.BucketTagging().tag_set")
+        logger.error(
+            "ClientError from botocore.exceptions raised when \
+                attempting s3.BucketTagging().tag_set"
+        )
         logger.error("Error: %s", error_client)
         return (1, response)
     except Exception as error_exception:
@@ -231,6 +255,7 @@ def create_policy(name, description, policy):
         return (2, response)
 
     return 0
+
 
 def lambda_handler(event, context):
     """lambda_handler is the main function and provides the execution order
@@ -242,7 +267,6 @@ def lambda_handler(event, context):
     role_name = "dis-s3-bucket-cross-account-access"
     role = resource.Role(role_name)
 
-
     ipaas_write_buckets = get_buckets(buckets, "write")
     ipaas_write_buckets_policies = generate_policy(ipaas_write_buckets)
     ipaas_write_objects_policies = generate_policy(ipaas_write_buckets, objects=True)
@@ -251,42 +275,57 @@ def lambda_handler(event, context):
     ipaas_read_buckets_policies = generate_policy(ipaas_read_buckets)
     ipaas_read_objects_policies = generate_policy(ipaas_read_buckets, objects=True)
 
-
     attached_policies = get_role_policies(role_name, policy_prefix)
     for policy in attached_policies:
         if detach_role_policy(role_name, policy["PolicyArn"]) == 0:
             delete_policy(policy["PolicyArn"])
         else:
-            logger.error("Detach role policy unsuccessful. Will not delete \
-                    policy: %s.", policy["PolicyName"])
-
+            logger.error(
+                "Detach role policy unsuccessful. Will not delete \
+                    policy: %s.",
+                policy["PolicyName"],
+            )
 
     count = 0
-    for buckets_policy, objects_policy in \
-            zip_longest(ipaas_write_buckets_policies, ipaas_write_objects_policies):
+    for buckets_policy, objects_policy in zip_longest(
+        ipaas_write_buckets_policies, ipaas_write_objects_policies
+    ):
         count += 1
         if buckets_policy is not None:
-            create_policy(f"{policy_prefix}-write-buckets-policy-{count}",
-                          "Write bucket policy for ipaas managed by \
-                                  dis lambda #{count}", buckets_policy)
+            create_policy(
+                "{policy_prefix}-write-buckets-policy-{count}",
+                "Write bucket policy for ipaas managed by \
+                                  dis lambda #{count}",
+                buckets_policy,
+            )
             role.attach_policy(PolicyArn="{policy_prefix}-write-buckets-policy-{count}")
         if objects_policy is not None:
-            create_policy("{policy_prefix}-write-objects-policy-{count}",
-                          "Write objects policy for ipaas managed by \
-                                  dis lambda #{count}", buckets_policy)
+            create_policy(
+                "{policy_prefix}-write-objects-policy-{count}",
+                "Write objects policy for ipaas managed by \
+                                  dis lambda #{count}",
+                buckets_policy,
+            )
             role.attach_policy(PolicyArn="{policy_prefix}-write-objects-policy-{count}")
 
     count = 0
-    for buckets_policy, objects_policy in \
-            zip_longest(ipaas_read_buckets_policies, ipaas_read_objects_policies):
+    for buckets_policy, objects_policy in zip_longest(
+        ipaas_read_buckets_policies, ipaas_read_objects_policies
+    ):
         count += 1
         if buckets_policy is not None:
-            create_policy("{policy_prefix}-read-buckets-policy-{count}",
-                          "Read bucket policy for ipaas managed by \
-                                  dis lambda #{count}", buckets_policy)
+            create_policy(
+                "{policy_prefix}-read-buckets-policy-{count}",
+                "Read bucket policy for ipaas managed by \
+                                  dis lambda #{count}",
+                buckets_policy,
+            )
             role.attach_policy(PolicyArn="{policy_prefix}-read-buckets-policy-{count}")
         if objects_policy is not None:
-            create_policy("{policy_prefix}-read-objects-policy-{count}",
-                          "Read objects policy for ipaas managed by \
-                                  dis lambda #{count}", buckets_policy)
-            role.attach_policy(PolicyArn="{policy_prefic}-read-objects-policy-{count}")
+            create_policy(
+                "{policy_prefix}-read-objects-policy-{count}",
+                "Read objects policy for ipaas managed by \
+                                  dis lambda #{count}",
+                buckets_policy,
+            )
+            role.attach_policy(PolicyArn="{policy_prefix}-read-objects-policy-{count}")
