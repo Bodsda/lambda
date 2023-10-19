@@ -18,11 +18,9 @@ logger = logging.getLogger("dis-aws-cross-account-s3-access")
 logger.setLevel(logging.INFO)
 
 
-# ToDo: review all docstrings - does our generated pydoc
-#  describe everything well enough?
 def get_buckets(s3buckets, rw_tag):
     """get_buckets takes a list of s3 buckets and a rw_tag("read", "write")
-    as parameters, and returns all buckets that have a tag called
+    as parameters, and returns all buckets with that tag that is also marked
     "ipaas_transfer_enabled".
     """
     ipaas_buckets = []
@@ -45,6 +43,13 @@ def get_buckets(s3buckets, rw_tag):
         for item in tag_set:
             if item["Key"] == "ipaas_transfer_enabled" and item["Value"] == rw_tag:
                 ipaas_buckets.append(bucket.name)
+            elif tag_set is not None:
+                logger.warning(
+                    "bucket %s, with tags: %s - %s not found among",
+                    bucket.name,
+                    tag_set,
+                    rw_tag,
+                )
             else:
                 logger.warning("bucket %s, no tags found", bucket.name)
 
@@ -52,7 +57,7 @@ def get_buckets(s3buckets, rw_tag):
 
 
 def get_role_policies(role_name, role_prefix):
-    """get_role_policies accepts a role name and a role prefix, then returns
+    """get_role_polciies accepts a role name and a role prefix, then returns
     a list of dictionary objects that contain that policy filtered by prefix
     """
     filtered_policies = []
@@ -91,8 +96,6 @@ def generate_policy(s3buckets, objects=False):
 
     There is a hard limit of 6KB (or 6k characters) for individual AWS policies - uses getsizeof to monitor the size of the policy string
     see this page for detail https://repost.aws/knowledge-center/iam-increase-policy-size
-
-    Returns a dictionary of policy ARNs
     """
     # ipaas_policy template is 343 bytes when the dict is represented as a string
     policies = []
@@ -177,8 +180,6 @@ def generate_policy(s3buckets, objects=False):
 def detach_role_policy(role_name, policy_arn):
     """detach_role_policy takes a role name and a policy ARN as parameters
     and detaches that policy from that role.
-
-    Returns 0 if successful.
     """
     response = ""  # Defining response outside the try/except due to pylint E0601
     try:
@@ -201,8 +202,6 @@ def detach_role_policy(role_name, policy_arn):
 def delete_policy(policy_arn):
     """delete_policy takes a policy ARN as a parameter and deletes that
     policy.
-
-    Returns 0 if successful.
     """
     try:
         response = iam.list_policy_versions(PolicyArn=policy_arn)
@@ -231,8 +230,6 @@ def delete_policy(policy_arn):
 def create_policy(name, description, policy):
     """create_policy takes a policy name, description, and policy data object
     (from generate_policy()) and creates a policy via iam.
-
-    Returns 0 if successful.
     """
     response = ""  # Defining response outside the try/except due to pylint E0601
     try:
@@ -270,7 +267,6 @@ def lambda_handler(event, context):
     role_name = "dis-s3-bucket-cross-account-access"
     role = resource.Role(role_name)
 
-    # make lists
     ipaas_write_buckets = get_buckets(buckets, "write")
     ipaas_write_buckets_policies = generate_policy(ipaas_write_buckets)
     ipaas_write_objects_policies = generate_policy(ipaas_write_buckets, objects=True)
@@ -280,19 +276,15 @@ def lambda_handler(event, context):
     ipaas_read_buckets_policies = generate_policy(ipaas_read_buckets)
     ipaas_read_objects_policies = generate_policy(ipaas_read_buckets, objects=True)
 
-    # iterate through the list of policies attached to the dis-s3-bucket-cross-account-access role
     attached_policies = get_role_policies(role_name, policy_prefix)
     for policy in attached_policies:
-        policy_arn = next(iter(policy.values()))
-        if (
-            detach_role_policy(role_name, policy_arn) == 0
-        ):  # success code returned by detach_role_policy function
-            delete_policy(policy_arn)
+        if detach_role_policy(role_name, policy["PolicyArn"]) == 0:
+            delete_policy(policy["PolicyArn"])
         else:
             logger.error(
                 "Detach role policy unsuccessful. Will not delete \
                     policy: %s.",
-                policy_arn,
+                policy["PolicyName"],
             )
 
     count = 0
@@ -303,6 +295,7 @@ def lambda_handler(event, context):
         if buckets_policy is not None:
             create_policy(
                 f"dis-managed-ipaas-write-buckets-policy-{count}",
+                # "%s-write-buckets-policy-%s" % (policy_prefix, count),
                 "Write bucket policy for ipaas managed by \
                                   dis lambda #{count}",
                 buckets_policy,
@@ -323,9 +316,6 @@ def lambda_handler(event, context):
             )
             # role.attach_policy(PolicyArn="%s-write-objects-policy-%s" % (policy_prefix, count))
 
-    # create & attach the new policies
-    # ToDo: we have a maximum quota of 10 polcies that can be attached to a role - we should check we don't exceed this
-    # ToDo: and raise an alert telling the team to review, and request uplift to quota if required
     count = 0
     for buckets_policy, objects_policy in zip_longest(
         ipaas_read_buckets_policies, ipaas_read_objects_policies
