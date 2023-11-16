@@ -8,9 +8,9 @@
 <table class="heading">
 <tr class="heading-text decor">
 <td class="title">&nbsp;<br><strong class="title">lambda</strong></td>
-<td class="extra"><a href=".">index</a><br><a href="file:/Users/SOUTAS01/projects/github/lambda/lambda.py">/Users/SOUTAS01/projects/github/lambda/lambda.py</a></td></tr></table>
-    <p><span class="code">Module&nbsp;to&nbsp;detach,&nbsp;delete&nbsp;and&nbsp;re-create&nbsp;permission&nbsp;policies&nbsp;for&nbsp;s3&nbsp;bucket<br>
-and&nbsp;s3&nbsp;bucket&nbsp;object&nbsp;access</span></p>
+<td class="extra"><a href=".">index</a><br><a href="file:/Users/SOUTAS01/projects/groupiaas/customer-applications/ipaas_cross_account_iam_role/lambda/src/lambda.py">/Users/SOUTAS01/projects/groupiaas/customer-applications/ipaas_cross_account_iam_role/lambda/src/lambda.py</a></td></tr></table>
+    <p><span class="code">Module&nbsp;to&nbsp;detach,&nbsp;delete&nbsp;and&nbsp;re-create&nbsp;permission&nbsp;policies&nbsp;for<br>
+s3&nbsp;bucket&nbsp;and&nbsp;s3&nbsp;object&nbsp;(files)&nbsp;access</span></p>
 <p>
 <table class="section">
 <tr class="decor pkg-content-decor heading-text">
@@ -27,24 +27,33 @@ and&nbsp;s3&nbsp;bucket&nbsp;object&nbsp;access</span></p>
 
 <tr><td class="decor functions-decor"><span class="code">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span></td><td>&nbsp;</td>
 <td class="singlecolumn"><dl><dt><a name="-create_policy"><strong>create_policy</strong></a>(name, description, policy)</dt><dd><span class="code">create_policy&nbsp;takes&nbsp;a&nbsp;policy&nbsp;name,&nbsp;description,&nbsp;and&nbsp;policy&nbsp;data&nbsp;object<br>
-(from&nbsp;<a href="#-generate_policy">generate_policy</a>())&nbsp;and&nbsp;creates&nbsp;a&nbsp;policy&nbsp;via&nbsp;iam.</span></dd></dl>
+(from&nbsp;<a href="#-generate_policy">generate_policy</a>())&nbsp;and&nbsp;creates&nbsp;a&nbsp;policy&nbsp;via&nbsp;iam.<br>
+&nbsp;<br>
+Returns&nbsp;0&nbsp;if&nbsp;successful.</span></dd></dl>
  <dl><dt><a name="-delete_policy"><strong>delete_policy</strong></a>(policy_arn)</dt><dd><span class="code">delete_policy&nbsp;takes&nbsp;a&nbsp;policy&nbsp;ARN&nbsp;as&nbsp;a&nbsp;parameter&nbsp;and&nbsp;deletes&nbsp;that<br>
-policy.</span></dd></dl>
+policy.<br>
+&nbsp;<br>
+Returns&nbsp;0&nbsp;if&nbsp;successful.</span></dd></dl>
  <dl><dt><a name="-detach_role_policy"><strong>detach_role_policy</strong></a>(role_name, policy_arn)</dt><dd><span class="code">detach_role_policy&nbsp;takes&nbsp;a&nbsp;role&nbsp;name&nbsp;and&nbsp;a&nbsp;policy&nbsp;ARN&nbsp;as&nbsp;parameters<br>
-and&nbsp;detaches&nbsp;that&nbsp;policy&nbsp;from&nbsp;that&nbsp;role.</span></dd></dl>
+and&nbsp;detaches&nbsp;that&nbsp;policy&nbsp;from&nbsp;that&nbsp;role.<br>
+&nbsp;<br>
+Returns&nbsp;0&nbsp;if&nbsp;successful.</span></dd></dl>
  <dl><dt><a name="-generate_policy"><strong>generate_policy</strong></a>(s3buckets, objects=False)</dt><dd><span class="code">generate_policy&nbsp;takes&nbsp;a&nbsp;list&nbsp;of&nbsp;s3&nbsp;buckets&nbsp;and&nbsp;optionally&nbsp;a&nbsp;parameter<br>
 to&nbsp;indicate&nbsp;if&nbsp;you&nbsp;want&nbsp;the&nbsp;resultant&nbsp;policy&nbsp;data&nbsp;to&nbsp;be&nbsp;for&nbsp;buckets&nbsp;or<br>
-objects.&nbsp;<br>
+objects.<br>
 &nbsp;<br>
-There&nbsp;is&nbsp;a&nbsp;hard&nbsp;limit&nbsp;of&nbsp;6KB&nbsp;(or&nbsp;6k&nbsp;characters)&nbsp;for&nbsp;individual&nbsp;AWS&nbsp;policies&nbsp;-&nbsp;uses&nbsp;getsizeof&nbsp;to&nbsp;monitor&nbsp;the&nbsp;size&nbsp;of&nbsp;the&nbsp;policy&nbsp;string<br>
-see&nbsp;this&nbsp;page&nbsp;for&nbsp;detail&nbsp;<a href="https://repost.aws/knowledge-center/iam-increase-policy-size">https://repost.aws/knowledge-center/iam-increase-policy-size</a></span></dd></dl>
+There&nbsp;is&nbsp;a&nbsp;hard&nbsp;limit&nbsp;of&nbsp;6KB&nbsp;(or&nbsp;6k&nbsp;characters)&nbsp;for&nbsp;individual&nbsp;AWS&nbsp;policies<br>
+&nbsp;this&nbsp;module&nbsp;-uses&nbsp;getsizeof&nbsp;to&nbsp;monitor&nbsp;the&nbsp;size&nbsp;of&nbsp;the&nbsp;policy&nbsp;string<br>
+see&nbsp;this&nbsp;page&nbsp;for&nbsp;detail&nbsp;<a href="https://repost.aws/knowledge-center/iam-increase-policy-size">https://repost.aws/knowledge-center/iam-increase-policy-size</a><br>
+&nbsp;<br>
+Returns&nbsp;a&nbsp;dictionary&nbsp;of&nbsp;policy&nbsp;ARNs</span></dd></dl>
  <dl><dt><a name="-generate_resource_list"><strong>generate_resource_list</strong></a>(s3buckets, objects=False)</dt><dd><span class="code">generate_resource_list&nbsp;takes&nbsp;a&nbsp;list&nbsp;of&nbsp;s3&nbsp;buckets&nbsp;and&nbsp;optionally&nbsp;a<br>
 parameter&nbsp;to&nbsp;indicate&nbsp;if&nbsp;you&nbsp;want&nbsp;the&nbsp;resource&nbsp;list&nbsp;to&nbsp;return&nbsp;objects<br>
 instead&nbsp;of&nbsp;buckets.</span></dd></dl>
  <dl><dt><a name="-get_buckets"><strong>get_buckets</strong></a>(s3buckets, rw_tag)</dt><dd><span class="code">get_buckets&nbsp;takes&nbsp;a&nbsp;list&nbsp;of&nbsp;s3&nbsp;buckets&nbsp;and&nbsp;a&nbsp;rw_tag("read",&nbsp;"write")<br>
-as&nbsp;parameters,&nbsp;and&nbsp;returns&nbsp;all&nbsp;buckets&nbsp;with&nbsp;that&nbsp;tag&nbsp;that&nbsp;is&nbsp;also&nbsp;marked<br>
+as&nbsp;parameters,&nbsp;and&nbsp;returns&nbsp;all&nbsp;buckets&nbsp;that&nbsp;have&nbsp;a&nbsp;tag&nbsp;called<br>
 "ipaas_transfer_enabled".</span></dd></dl>
- <dl><dt><a name="-get_role_policies"><strong>get_role_policies</strong></a>(role_name, role_prefix)</dt><dd><span class="code">get_role_polciies&nbsp;accepts&nbsp;a&nbsp;role&nbsp;name&nbsp;and&nbsp;a&nbsp;role&nbsp;prefix,&nbsp;then&nbsp;returns<br>
+ <dl><dt><a name="-get_role_policies"><strong>get_role_policies</strong></a>(role_name, role_prefix)</dt><dd><span class="code">get_role_policies&nbsp;accepts&nbsp;a&nbsp;role&nbsp;name&nbsp;and&nbsp;a&nbsp;role&nbsp;prefix,&nbsp;then&nbsp;returns<br>
 a&nbsp;list&nbsp;of&nbsp;dictionary&nbsp;objects&nbsp;that&nbsp;contain&nbsp;that&nbsp;policy&nbsp;filtered&nbsp;by&nbsp;prefix</span></dd></dl>
  <dl><dt><a name="-getsizeof"><strong>getsizeof</strong></a>(...)</dt><dd><span class="code"><a href="#-getsizeof">getsizeof</a>(object&nbsp;[,&nbsp;default])&nbsp;-&gt;&nbsp;int<br>
 &nbsp;<br>

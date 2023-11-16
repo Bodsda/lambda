@@ -15,7 +15,7 @@ buckets = s3.buckets.all()
 iam = boto3.client("iam")
 
 logger = logging.getLogger("dis-aws-cross-account-s3-access")
-logger.setLevel(logging.INFO)
+logger.setLevel(logging.DEBUG)
 
 
 # ToDo: review all docstrings - does our generated pydoc
@@ -24,6 +24,7 @@ def get_buckets(s3buckets, rw_tag):
     """get_buckets takes a list of s3 buckets and a rw_tag("read", "write")
     as parameters, and returns all buckets that have a tag called
     "ipaas_transfer_enabled".
+
     """
     ipaas_buckets = []
 
@@ -32,21 +33,23 @@ def get_buckets(s3buckets, rw_tag):
             tag_set = s3.BucketTagging(bucket.name).tag_set
         except ClientError as error_client:
             if error_client.response["Error"]["Code"] == "NoSuchTagSet":
-                logger.warning("Bucket %s has no tags assigned", bucket.name)
+                logger.info("Info: Bucket %s has no tags set", bucket.name)
                 continue
-            logger.error("Error: %s", error_client)
+            logger.error("Error: Unknown client error occurred: %s", error_client)
             continue
 
         except Exception as error_exception:
-            logger.error("General Exception caught")
-            logger.error("Error: %s", error_exception)
+            logger.error("Error: Unknown error occurred: %s", error_exception)
+
             continue
 
         for item in tag_set:
             if item["Key"] == "ipaas_transfer_enabled" and item["Value"] == rw_tag:
                 ipaas_buckets.append(bucket.name)
-            else:
-                logger.warning("bucket %s, no tags found", bucket.name)
+                logger.info(
+                    "Info: Bucket %s found with tag ipaas_transfer_enabled:%s"
+                    % (bucket.name, rw_tag)
+                )
 
     return ipaas_buckets
 
@@ -89,29 +92,41 @@ def generate_policy(s3buckets, objects=False):
     to indicate if you want the resultant policy data to be for buckets or
     objects.
 
-    There is a hard limit of 6KB (or 6k characters) for individual AWS policies - uses getsizeof to monitor the size of the policy string
+    There is a hard limit of 6i44 Bytes (or 6k characters) for individual AWS policies
+     this module uses `getsizeof` to monitor the size of the policy string
     see this page for detail https://repost.aws/knowledge-center/iam-increase-policy-size
 
     Returns a dictionary of policy ARNs
     """
-    # ipaas_policy template is 343 bytes when the dict is represented as a string
+    # ipaas_policy S3 Objects template is 343 bytes when the dict is represented as a string
     policies = []
     if not objects:
         resource_list = generate_resource_list(s3buckets)
-        tmp_list1 = []
+        tmp_list1 = []  # list of correctly sized policy resources
+        tmp_list2 = (
+            []
+        )  # temporary list - test if the policy has exceeded the 6KB size has become too large
 
-        tmp_list2 = []
         for i in resource_list:
-            if getsizeof(tmp_list2) < (6000 - 343 + (getsizeof(i))):
+            logger.debug(
+                "resource: %s size of list1: %d, size of list2 %d",
+                i,
+                getsizeof(tmp_list1),
+                getsizeof(tmp_list2),
+            )
+            if getsizeof(tmp_list2) < (6000 - 1000):
                 tmp_list2.append(i)
-            else:
+            else:  # no room for additional arns
                 tmp_list1.append(tmp_list2)
                 tmp_list2 = []
-                tmp_list2.append(i)
+                tmp_list2.append(i)  # add the current arn to the freshly emptied list_2
+
         if len(tmp_list2) > 0:
             tmp_list1.append(tmp_list2)
+            # logger.debug("append list2 to policy list1: %s size of list1: %d", item, getsizeof(tmp_list1))
 
         for item in tmp_list1:
+            logger.debug("policy: %s size of list 1: %d", item, getsizeof(tmp_list1))
             ipaas_policy = {
                 "Version": "2012-10-17",
                 "Statement": [
@@ -133,21 +148,31 @@ def generate_policy(s3buckets, objects=False):
             policies.append(ipaas_policy)
 
     else:
-        # ipaas_policy template is 364 bytes when the dict is represented as a string
+        # ipaas_policy s3 buckets template is 364 bytes when the dict is represented as a string
         resource_list = generate_resource_list(s3buckets, objects=True)
         tmp_list1 = []
         tmp_list2 = []
+
         for i in resource_list:
-            if getsizeof(tmp_list2) < (6000 - 343 + (getsizeof(i))):
+            logger.debug(
+                "resource: %s size of list1: %d, size of list2 %d",
+                i,
+                getsizeof(tmp_list1),
+                getsizeof(tmp_list2),
+            )
+            if getsizeof(tmp_list2) < (3000):
                 tmp_list2.append(i)
             else:
                 tmp_list1.append(tmp_list2)
                 tmp_list2 = []
                 tmp_list2.append(i)
+
         if len(tmp_list2) > 0:
             tmp_list1.append(tmp_list2)
+            # logger.debug("append list2 to policy list1: %s size of list1: %d", item, getsizeof(tmp_list1))
 
         for item in tmp_list1:
+            logger.debug("policy: %s size of list1: %d", item, getsizeof(tmp_list1))
             ipaas_policy = {
                 "Version": "2012-10-17",
                 "Statement": [
@@ -183,16 +208,21 @@ def detach_role_policy(role_name, policy_arn):
     response = ""  # Defining response outside the try/except due to pylint E0601
     try:
         response = iam.detach_role_policy(RoleName=role_name, PolicyArn=policy_arn)
+        logger.debug(
+            "detach_role_policy: Debug: Policy detached: %s from role %s"
+            % (policy_arn, role_name)
+        )
+
     except ClientError as error_client:
         logger.error(
-            "ClientError from botocore.exceptions raised when \
+            "detach_role_policy: ClientError from botocore.exceptions raised when \
                 attempting s3.BucketTagging().tag_set"
         )
-        logger.error("Error: %s", error_client)
+        logger.error("detach_role_policy: Error: detach_role_policy: %s", error_client)
         return (1, response)
     except Exception as error_exception:
-        logger.error("General Exception caught")
-        logger.error("Error: %s", error_exception)
+        logger.error("detach_role_policy: General Exception caught")
+        logger.error("detach_role_policy: Error: %s", error_exception)
         return (2, response)
 
     return 0
@@ -213,16 +243,18 @@ def delete_policy(policy_arn):
                 PolicyArn=policy_arn, VersionId=policy_version["VersionId"]
             )
         response = iam.delete_policy(PolicyArn=policy_arn)
+        logger.debug("delete_policy: Debug: Policy deleted: %s" % policy_arn)
+
     except ClientError as error_client:
         logger.error(
-            "ClientError from botocore.exceptions raised when \
+            "delete_policy: ClientError from botocore.exceptions raised when \
                 attempting s3.BucketTagging().tag_set"
         )
-        logger.error("Error: %s", error_client)
+        logger.error("Error: delete_policy: %s", error_client)
         return (1, response)
     except Exception as error_exception:
-        logger.error("General Exception caught")
-        logger.error("Error: %s", error_exception)
+        logger.error("delete_policy: General Exception caught")
+        logger.error("delete_policy: Error: %s", error_exception)
         return (2, response)
 
     return 0
@@ -245,16 +277,18 @@ def create_policy(name, description, policy):
                 {"Key": "Charge_Code", "Value": "15445"},
             ],
         )
+        logger.debug("create_policy: Debug: Policy created: %s" % name)
+
     except ClientError as error_client:
         logger.error(
-            "ClientError from botocore.exceptions raised when \
+            "create_policy: ClientError from botocore.exceptions raised when \
                 attempting s3.BucketTagging().tag_set"
         )
-        logger.error("Error: %s", error_client)
+        logger.error("create_policy: Error: %s", error_client)
         return (1, response)
     except Exception as error_exception:
-        logger.error("General Exception caught")
-        logger.error("Error: %s", error_exception)
+        logger.error("create_policy: General Exception caught")
+        logger.error("create_policy: Error: %s", error_exception)
         return (2, response)
 
     return 0
@@ -274,7 +308,6 @@ def lambda_handler(event, context):
     ipaas_write_buckets = get_buckets(buckets, "write")
     ipaas_write_buckets_policies = generate_policy(ipaas_write_buckets)
     ipaas_write_objects_policies = generate_policy(ipaas_write_buckets, objects=True)
-    logger.info(f"ipaas_write_buckets_policies={len(ipaas_write_buckets_policies)}")
 
     ipaas_read_buckets = get_buckets(buckets, "read")
     ipaas_read_buckets_policies = generate_policy(ipaas_read_buckets)
@@ -310,7 +343,7 @@ def lambda_handler(event, context):
             role.attach_policy(
                 PolicyArn=f"{policy_prefix}-write-buckets-policy-{count}"
             )
-            # role.attach_policy(PolicyArn="%s-write-buckets-policy-%s" % (policy_prefix, count))
+
         if objects_policy is not None:
             create_policy(
                 f"dis-managed-ipaas-write-objects-policy-{count}",
@@ -321,10 +354,9 @@ def lambda_handler(event, context):
             role.attach_policy(
                 PolicyArn=f"{policy_prefix}-write-objects-policy-{count}"
             )
-            # role.attach_policy(PolicyArn="%s-write-objects-policy-%s" % (policy_prefix, count))
 
     # create & attach the new policies
-    # ToDo: we have a maximum quota of 10 polcies that can be attached to a role - we should check we don't exceed this
+    # ToDo: we have a maximum quota of 10 policies that can be attached to a role - we should check we don't exceed this
     # ToDo: and raise an alert telling the team to review, and request uplift to quota if required
     count = 0
     for buckets_policy, objects_policy in zip_longest(
