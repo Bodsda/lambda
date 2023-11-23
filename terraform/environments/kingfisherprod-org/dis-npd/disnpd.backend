@@ -1,0 +1,3 @@
+key            = "customer_applications/ipaas_cross_account_iam/s3access/disnpd/terraform.state"
+dynamodb_table = "dis-dis-npd-tfstate-table"
+bucket         = "dis-dis-npd-ipaas-s3access-tfstate-bucket"
