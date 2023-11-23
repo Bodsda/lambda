@@ -20,7 +20,7 @@ provider "aws" {
 # tflint-ignore: terraform_required_providers
 resource "random_id" "bucket_names" {
   count       = var.bucket_count
-  byte_length = 4
+  byte_length = 22
 }
 
 resource "aws_s3_bucket" "test_buckets" {

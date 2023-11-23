@@ -6,6 +6,6 @@ variable "bucket_count" {
 
 variable "read_or_write" {
   type        = string
-  default     = "read"
+  default     = "write"
   description = "set the AWS ipaas_transfer_enabled tag to either 'read' or 'write'"
 }

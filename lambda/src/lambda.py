@@ -15,7 +15,7 @@ buckets = s3.buckets.all()
 iam = boto3.client("iam")
 
 logger = logging.getLogger("dis-aws-cross-account-s3-access")
-logger.setLevel(logging.DEBUG)
+logger.setLevel(logging.INFO)
 
 
 # ToDo: review all docstrings - does our generated pydoc
@@ -33,7 +33,7 @@ def get_buckets(s3buckets, rw_tag):
             tag_set = s3.BucketTagging(bucket.name).tag_set
         except ClientError as error_client:
             if error_client.response["Error"]["Code"] == "NoSuchTagSet":
-                logger.info("Info: Bucket %s has no tags set", bucket.name)
+                logger.debug("Debug: Bucket %s has no tags set", bucket.name)
                 continue
             logger.error("Error: Unknown client error occurred: %s", error_client)
             continue
@@ -46,8 +46,8 @@ def get_buckets(s3buckets, rw_tag):
         for item in tag_set:
             if item["Key"] == "ipaas_transfer_enabled" and item["Value"] == rw_tag:
                 ipaas_buckets.append(bucket.name)
-                logger.info(
-                    "Info: Bucket %s found with tag ipaas_transfer_enabled:%s"
+                logger.debug(
+                    "Debug: Bucket %s found with tag ipaas_transfer_enabled:%s"
                     % (bucket.name, rw_tag)
                 )
 
@@ -97,9 +97,15 @@ def generate_policy(s3buckets, objects=False):
     see this page for detail https://repost.aws/knowledge-center/iam-increase-policy-size
 
     Returns a dictionary of policy ARNs
+
+
+    bytes_available = 5500       # Available bytes to be used by ARNs
+    remaining = bytes_available  # Remaining bytes counter initially set to bytes_available and then decremented in the following loops 
     """
     # ipaas_policy S3 Objects template is 343 bytes when the dict is represented as a string
     policies = []
+    bytes_available = 5500       # Available bytes to be used by ARNs
+    remaining = bytes_available  # Remaining bytes counter initially set to bytes_available and then decremented in the following loops 
     if not objects:
         resource_list = generate_resource_list(s3buckets)
         tmp_list1 = []  # list of correctly sized policy resources
@@ -108,25 +114,20 @@ def generate_policy(s3buckets, objects=False):
         )  # temporary list - test if the policy has exceeded the 6KB size has become too large
 
         for i in resource_list:
-            logger.debug(
-                "resource: %s size of list1: %d, size of list2 %d",
-                i,
-                getsizeof(tmp_list1),
-                getsizeof(tmp_list2),
-            )
-            if getsizeof(tmp_list2) < (6000 - 1000):
+            if (remaining - len(i)) > 0:
+                remaining = (remaining - len(i))
                 tmp_list2.append(i)
             else:  # no room for additional arns
                 tmp_list1.append(tmp_list2)
                 tmp_list2 = []
                 tmp_list2.append(i)  # add the current arn to the freshly emptied list_2
+                remaining = bytes_available
+                remaining = (remaining - len(i))
 
         if len(tmp_list2) > 0:
             tmp_list1.append(tmp_list2)
-            # logger.debug("append list2 to policy list1: %s size of list1: %d", item, getsizeof(tmp_list1))
 
         for item in tmp_list1:
-            logger.debug("policy: %s size of list 1: %d", item, getsizeof(tmp_list1))
             ipaas_policy = {
                 "Version": "2012-10-17",
                 "Statement": [
@@ -154,25 +155,20 @@ def generate_policy(s3buckets, objects=False):
         tmp_list2 = []
 
         for i in resource_list:
-            logger.debug(
-                "resource: %s size of list1: %d, size of list2 %d",
-                i,
-                getsizeof(tmp_list1),
-                getsizeof(tmp_list2),
-            )
-            if getsizeof(tmp_list2) < (3000):
+            if (remaining - len(i)) > 0:
+                remaining = (remaining - len(i))
                 tmp_list2.append(i)
             else:
                 tmp_list1.append(tmp_list2)
                 tmp_list2 = []
                 tmp_list2.append(i)
+                remaining = bytes_available
+                remaining = (remaining - len(i))
 
         if len(tmp_list2) > 0:
             tmp_list1.append(tmp_list2)
-            # logger.debug("append list2 to policy list1: %s size of list1: %d", item, getsizeof(tmp_list1))
 
         for item in tmp_list1:
-            logger.debug("policy: %s size of list1: %d", item, getsizeof(tmp_list1))
             ipaas_policy = {
                 "Version": "2012-10-17",
                 "Statement": [
@@ -216,7 +212,7 @@ def detach_role_policy(role_name, policy_arn):
     except ClientError as error_client:
         logger.error(
             "detach_role_policy: ClientError from botocore.exceptions raised when \
-                attempting s3.BucketTagging().tag_set"
+                attempting s3.BucketTagging().tag_set in detach_role_policy()"
         )
         logger.error("detach_role_policy: Error: detach_role_policy: %s", error_client)
         return (1, response)
@@ -248,7 +244,7 @@ def delete_policy(policy_arn):
     except ClientError as error_client:
         logger.error(
             "delete_policy: ClientError from botocore.exceptions raised when \
-                attempting s3.BucketTagging().tag_set"
+                attempting s3.BucketTagging().tag_set in delete_policy()"
         )
         logger.error("Error: delete_policy: %s", error_client)
         return (1, response)
@@ -282,7 +278,7 @@ def create_policy(name, description, policy):
     except ClientError as error_client:
         logger.error(
             "create_policy: ClientError from botocore.exceptions raised when \
-                attempting s3.BucketTagging().tag_set"
+                attempting s3.BucketTagging().tag_set in create_policy()"
         )
         logger.error("create_policy: Error: %s", error_client)
         return (1, response)
