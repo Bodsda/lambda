@@ -26,10 +26,6 @@ resource "aws_iam_role" "lambda_iam_role" {
 }
 EOF
 
-  tags = merge(var.global_tags, {
-    yor_name  = "lambda_iam_role"
-    yor_trace = "7ba3fb7f-0171-419b-b2a1-cc08491ca933"
-  })
   provider = aws.dps
 }
 
@@ -86,17 +82,6 @@ resource "aws_iam_policy" "lambda_iam_policy" {
 }
 EOF
 
-  tags = merge(var.global_tags, {
-    git_commit           = "3abdbf50aba58b4bad86658b61bb8dc8730e6939"
-    git_file             = "terraform/lambda.tf"
-    git_last_modified_at = "2023-10-17 21:44:29"
-    git_last_modified_by = "steven.soutar@kingfisher.com"
-    git_modifiers        = "sandip.mukherjee/steven.soutar"
-    git_org              = "group_iaas"
-    git_repo             = "customer-applications/ipaas_cross_account_iam_role"
-    yor_name             = "lambda_iam_policy"
-    yor_trace            = "0a135925-957f-4686-b69b-41bcf79c1f5a"
-  })
   provider = aws.dps
 }
 
