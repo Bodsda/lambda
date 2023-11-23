@@ -6,3 +6,13 @@ event_schedule_expression  = "cron(0/5 9-19 ? * MON-FRI *)"
 iics_instances = [
   "webapp-example"
 ]
+
+global_tags = {
+  Orchestration       = "TF"
+  Technical_Owner     = "Cloud Solution Services"
+  Environment         = "dev"
+  Charge_Code         = "15445"
+  OpCo                = "kits"
+  Service             = "ipaas_cross_account_access"
+  dt_servicenow_owner = "Cloud Solution Services"
+}
