@@ -1,0 +1,87 @@
+
+Terraform used the selected providers to generate the following execution
+plan. Resource actions are indicated with the following symbols:
+  [32m+[0m create[0m
+
+Terraform will perform the following actions:
+
+[1m  # aws_s3_bucket_public_access_block.private_s3[0m will be created
+[0m  [32m+[0m[0m resource "aws_s3_bucket_public_access_block" "private_s3" {
+      [32m+[0m[0m block_public_acls       = true
+      [32m+[0m[0m block_public_policy     = true
+      [32m+[0m[0m bucket                  = (known after apply)
+      [32m+[0m[0m id                      = (known after apply)
+      [32m+[0m[0m ignore_public_acls      = true
+      [32m+[0m[0m restrict_public_buckets = true
+    }
+
+[1m  # module.s3_bucket.aws_s3_bucket.s3_bucket[0m will be created
+[0m  [32m+[0m[0m resource "aws_s3_bucket" "s3_bucket" {
+      [32m+[0m[0m acceleration_status         = (known after apply)
+      [32m+[0m[0m acl                         = (known after apply)
+      [32m+[0m[0m arn                         = (known after apply)
+      [32m+[0m[0m bucket                      = "dis-dis-dev-ipaas-s3access-tfstate-bucket"
+      [32m+[0m[0m bucket_domain_name          = (known after apply)
+      [32m+[0m[0m bucket_prefix               = (known after apply)
+      [32m+[0m[0m bucket_regional_domain_name = (known after apply)
+      [32m+[0m[0m force_destroy               = false
+      [32m+[0m[0m hosted_zone_id              = (known after apply)
+      [32m+[0m[0m id                          = (known after apply)
+      [32m+[0m[0m object_lock_enabled         = (known after apply)
+      [32m+[0m[0m policy                      = (known after apply)
+      [32m+[0m[0m region                      = (known after apply)
+      [32m+[0m[0m request_payer               = (known after apply)
+      [32m+[0m[0m tags                        = {
+          [32m+[0m[0m "Charge_Code"          = "15445"
+          [32m+[0m[0m "Environment"          = "dis-dev"
+          [32m+[0m[0m "GitRepo"              = "https://gitlab.kfplc.com/group_iaas/customer-applications/ipaas_cross_account_iam_role"
+          [32m+[0m[0m "Name"                 = "dis-dis-dev-ipaas-s3access-tfstate-bucket"
+          [32m+[0m[0m "OpCo"                 = "kits"
+          [32m+[0m[0m "Orchestration"        = "TF"
+          [32m+[0m[0m "Service"              = "ipaas_s3_cross_account"
+          [32m+[0m[0m "TFModule"             = ".terraform/modules/s3_bucket/s3_bucket"
+          [32m+[0m[0m "TFModuleGit"          = "https://gitlab.kfplc.com/group_iaas/aws-terraform-modules"
+          [32m+[0m[0m "Technical_Owner"      = "dis"
+          [32m+[0m[0m "git_commit"           = "77e71703a51bd2f0dc54c35825360bb4b6f0e078"
+          [32m+[0m[0m "git_file"             = "terraform-init/s3_bucket.tf"
+          [32m+[0m[0m "git_last_modified_at" = "2022-06-07 08:46:59"
+          [32m+[0m[0m "git_last_modified_by" = "sandip.mukherjee@kingfisher.com"
+          [32m+[0m[0m "git_modifiers"        = "sandip.mukherjee"
+          [32m+[0m[0m "git_org"              = "group_iaas"
+          [32m+[0m[0m "git_repo"             = "customer-applications/ipaas_cross_account_iam_role"
+          [32m+[0m[0m "yor_name"             = "s3_bucket"
+          [32m+[0m[0m "yor_trace"            = "553a8f7a-0433-4387-b139-b1df4ab8a457"
+        }
+      [32m+[0m[0m tags_all                    = {
+          [32m+[0m[0m "Charge_Code"          = "15445"
+          [32m+[0m[0m "Environment"          = "dis-dev"
+          [32m+[0m[0m "GitRepo"              = "https://gitlab.kfplc.com/group_iaas/customer-applications/ipaas_cross_account_iam_role"
+          [32m+[0m[0m "Name"                 = "dis-dis-dev-ipaas-s3access-tfstate-bucket"
+          [32m+[0m[0m "OpCo"                 = "kits"
+          [32m+[0m[0m "Orchestration"        = "TF"
+          [32m+[0m[0m "Service"              = "ipaas_s3_cross_account"
+          [32m+[0m[0m "TFModule"             = ".terraform/modules/s3_bucket/s3_bucket"
+          [32m+[0m[0m "TFModuleGit"          = "https://gitlab.kfplc.com/group_iaas/aws-terraform-modules"
+          [32m+[0m[0m "Technical_Owner"      = "dis"
+          [32m+[0m[0m "git_commit"           = "77e71703a51bd2f0dc54c35825360bb4b6f0e078"
+          [32m+[0m[0m "git_file"             = "terraform-init/s3_bucket.tf"
+          [32m+[0m[0m "git_last_modified_at" = "2022-06-07 08:46:59"
+          [32m+[0m[0m "git_last_modified_by" = "sandip.mukherjee@kingfisher.com"
+          [32m+[0m[0m "git_modifiers"        = "sandip.mukherjee"
+          [32m+[0m[0m "git_org"              = "group_iaas"
+          [32m+[0m[0m "git_repo"             = "customer-applications/ipaas_cross_account_iam_role"
+          [32m+[0m[0m "yor_name"             = "s3_bucket"
+          [32m+[0m[0m "yor_trace"            = "553a8f7a-0433-4387-b139-b1df4ab8a457"
+        }
+      [32m+[0m[0m website_domain              = (known after apply)
+      [32m+[0m[0m website_endpoint            = (known after apply)
+    }
+
+[1mPlan:[0m 2 to add, 0 to change, 0 to destroy.
+[0m
+Changes to Outputs:
+  [32m+[0m[0m s3_state_bucket        = {
+      [32m+[0m[0m bucket_acl = (known after apply)
+      [32m+[0m[0m bucket_arn = (known after apply)
+      [32m+[0m[0m bucket_id  = (known after apply)
+    }
