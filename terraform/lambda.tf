@@ -27,6 +27,17 @@ resource "aws_iam_role" "lambda_iam_role" {
 EOF
 
   provider = aws.dps
+  tags = {
+    git_commit           = "6dad2010382f0d082b3b9599a3ff02ea251c0089"
+    git_file             = "terraform/lambda.tf"
+    git_last_modified_at = "2023-11-23 12:15:43"
+    git_last_modified_by = "steven.soutar@kingfisher.com"
+    git_modifiers        = "steven.soutar"
+    git_org              = "Bodsda"
+    git_repo             = "lambda"
+    yor_name             = "lambda_iam_role"
+    yor_trace            = "dc8a7e5e-a4e4-435a-8224-81ca58aa635b"
+  }
 }
 
 resource "aws_iam_policy" "lambda_iam_policy" {
@@ -83,6 +94,17 @@ resource "aws_iam_policy" "lambda_iam_policy" {
 EOF
 
   provider = aws.dps
+  tags = {
+    git_commit           = "6dad2010382f0d082b3b9599a3ff02ea251c0089"
+    git_file             = "terraform/lambda.tf"
+    git_last_modified_at = "2023-11-23 12:15:43"
+    git_last_modified_by = "steven.soutar@kingfisher.com"
+    git_modifiers        = "steven.soutar"
+    git_org              = "Bodsda"
+    git_repo             = "lambda"
+    yor_name             = "lambda_iam_policy"
+    yor_trace            = "7292a8e6-670a-472d-b8a3-d093d8ed6edb"
+  }
 }
 
 resource "aws_lambda_function" "dis_ipaas_bucket_tag_checker" {
@@ -101,13 +123,13 @@ resource "aws_lambda_function" "dis_ipaas_bucket_tag_checker" {
     tomap({ "Name" = "dis-ipaas-cross-account-function" }),
     var.global_tags
     , {
-      git_commit           = "ca139117092842200ad08362341999d7f3ed5f00"
+      git_commit           = "6dad2010382f0d082b3b9599a3ff02ea251c0089"
       git_file             = "terraform/lambda.tf"
-      git_last_modified_at = "2023-10-19 15:47:55"
+      git_last_modified_at = "2023-11-23 12:15:43"
       git_last_modified_by = "steven.soutar@kingfisher.com"
-      git_modifiers        = "sandip.mukherjee/steven.soutar"
-      git_org              = "group_iaas"
-      git_repo             = "customer-applications/ipaas_cross_account_iam_role"
+      git_modifiers        = "steven.soutar"
+      git_org              = "Bodsda"
+      git_repo             = "lambda"
       yor_name             = "dis_ipaas_bucket_tag_checker"
       yor_trace            = "beeed9f1-8ded-4006-9471-dde40cc28bc1"
   })
@@ -143,13 +165,13 @@ resource "aws_cloudwatch_event_rule" "DISDailyBucketTagChecker" {
   schedule_expression = var.event_schedule_expression
 
   tags = merge(var.global_tags, {
-    git_commit           = "ef92b869f3cb63a7cc0be4d005235e1c4027198c"
+    git_commit           = "6dad2010382f0d082b3b9599a3ff02ea251c0089"
     git_file             = "terraform/lambda.tf"
-    git_last_modified_at = "2023-11-02 12:10:42"
+    git_last_modified_at = "2023-11-23 12:15:43"
     git_last_modified_by = "steven.soutar@kingfisher.com"
-    git_modifiers        = "sandip.mukherjee/steven.soutar"
-    git_org              = "group_iaas"
-    git_repo             = "customer-applications/ipaas_cross_account_iam_role"
+    git_modifiers        = "steven.soutar"
+    git_org              = "Bodsda"
+    git_repo             = "lambda"
     yor_name             = "DISDailyBucketTagChecker"
     yor_trace            = "079211dc-a52f-4860-adf7-c6aa5ea5c157"
   })
