@@ -33,12 +33,12 @@ resource "aws_s3_bucket" "test_buckets" {
     ipaas_transfer_enabled = var.read_or_write
     yor_name               = "test_buckets"
     yor_trace              = "8e461766-a84c-408b-93c8-64b2c855e817"
-    git_commit             = "c13273d184d87785ebcf4e8414e9d61183062799"
+    git_commit             = "6dad2010382f0d082b3b9599a3ff02ea251c0089"
     git_file               = "tests/terraform/main.tf"
-    git_last_modified_at   = "2023-11-08 12:50:23"
+    git_last_modified_at   = "2023-11-23 12:15:43"
     git_last_modified_by   = "steven.soutar@kingfisher.com"
     git_modifiers          = "steven.soutar"
-    git_org                = "group_iaas"
-    git_repo               = "customer-applications/ipaas_cross_account_iam_role"
+    git_org                = "Bodsda"
+    git_repo               = "lambda"
   }
 }

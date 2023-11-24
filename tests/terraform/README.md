@@ -32,7 +32,7 @@ No modules.
 | Name | Description | Type | Default | Required |
 |------|-------------|------|---------|:--------:|
 | <a name="input_bucket_count"></a> [bucket\_count](#input\_bucket\_count) | the number of test s3 buckets to be created | `number` | `10` | no |
-| <a name="input_read_or_write"></a> [read\_or\_write](#input\_read\_or\_write) | set the AWS ipaas\_transfer\_enabled tag to either 'read' or 'write' | `string` | `"read"` | no |
+| <a name="input_read_or_write"></a> [read\_or\_write](#input\_read\_or\_write) | set the AWS ipaas\_transfer\_enabled tag to either 'read' or 'write' | `string` | `"write"` | no |
 
 ## Outputs
 

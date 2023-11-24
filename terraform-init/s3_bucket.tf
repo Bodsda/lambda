@@ -5,13 +5,13 @@ module "s3_bucket" {
   versioning    = var.versioning
   force_destroy = var.force_destroy
   tags = merge(var.global_tags, {
-    git_commit           = "77e71703a51bd2f0dc54c35825360bb4b6f0e078"
+    git_commit           = "656b8abaa920e69b254aa1335fbe1513aba5c51c"
     git_file             = "terraform-init/s3_bucket.tf"
-    git_last_modified_at = "2022-06-07 08:46:59"
-    git_last_modified_by = "sandip.mukherjee@kingfisher.com"
-    git_modifiers        = "sandip.mukherjee"
-    git_org              = "group_iaas"
-    git_repo             = "customer-applications/ipaas_cross_account_iam_role"
+    git_last_modified_at = "2023-11-23 13:56:46"
+    git_last_modified_by = "steven.soutar@kingfisher.com"
+    git_modifiers        = "steven.soutar"
+    git_org              = "Bodsda"
+    git_repo             = "lambda"
     yor_name             = "s3_bucket"
     yor_trace            = "553a8f7a-0433-4387-b139-b1df4ab8a457"
   })
