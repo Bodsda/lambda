@@ -1,7 +1,6 @@
 """Module to detach, delete and re-create permission policies for
 s3 bucket and s3 object (files) access
 """
-from sys import getsizeof
 from itertools import zip_longest
 import logging
 import json
@@ -46,10 +45,8 @@ def get_buckets(s3buckets, rw_tag):
         for item in tag_set:
             if item["Key"] == "ipaas_transfer_enabled" and item["Value"] == rw_tag:
                 ipaas_buckets.append(bucket.name)
-                logger.debug(
-                    "Debug: Bucket %s found with tag ipaas_transfer_enabled:%s"
-                    % (bucket.name, rw_tag)
-                )
+                logger.debug("Debug: Bucket %s found with tag ipaas_transfer_enabled:%s",
+                             bucket.name, rw_tag)
 
     return ipaas_buckets
 
@@ -94,26 +91,29 @@ def generate_policy(s3buckets, objects=False):
 
     There is a hard limit of 6i44 Bytes (or 6k characters) for individual AWS policies
     this module monitors the size of the policy string by assessing the length of each
-    ARN before adding it. 
+    ARN before adding it.
     see this page for detail https://repost.aws/knowledge-center/iam-increase-policy-size
 
     Returns a dictionary of policy ARNs
 
 
     bytes_available = 5500       # Available bytes to be used by ARNs
-    remaining = bytes_available  # Remaining bytes counter initially set to bytes_available and then decremented in the following loops 
-    
-    padding = 3                  # When assessing ARN length there is some additional unidentified characters added at some point. This variable
-                                 # causes the ARN to be assessed as longer than it is by whatever the variable value is. This allows us to use 
-                                 # 6144 as the bytes_available, in line with AWS policy limits, instead of an arbitrarily smaller value that
-                                 # would have no real meaning. 
+    remaining = bytes_available  # Remaining bytes counter initially set to bytes_available and
+                                 # then decremented in the following loops
+
+    padding = 3                  # When assessing ARN length there is some additional unidentified
+                                 # characters added at some point. This variable causes the ARN to
+                                 # be assessed as longer than it is by whatever the variable value
+                                 # is. This allows us to use 6144 as the bytes_available, in line
+                                 # with AWS policy limits, instead of an arbitrarily smaller value
+                                 # that would have no real meaning.
                                  # it might work =2 but does work =3
     """
 
     policies = []
     bytes_available = 6144       # Available bytes to be used by ARNs
     padding = 3  # See docstring
-    
+
     if not objects:
         filename = "buckets.json"
         arn_type = "buckets"
@@ -123,23 +123,25 @@ def generate_policy(s3buckets, objects=False):
         arn_type = "objects"
         resource_list = generate_resource_list(s3buckets, objects=True)
 
-    with open(filename) as handle:
+    with open(filename, encoding="utf-8") as handle:
         data = handle.read()
         whitespace = (data.count(" ") + data.count("\t") + data.count("\n"))
         chars = (len(data) - whitespace)
-    
-    remaining = (bytes_available - chars)  # Remaining bytes counter initially set to bytes_available and then decremented in the following loops 
+
+    remaining = (bytes_available - chars)
     tmp_list1 = []  # list of correctly sized policy resources
-    tmp_list2 = []  # temporary list - test if the policy has exceeded the 6KB size has become too large
+    tmp_list2 = []  # temporary list to test if the policy will become too large
 
     for i in resource_list:
         if (remaining - len(i) - padding) > 0:
-            logger.debug("DEBUG: Appending %s ARN to tmp_list2. remaining variable = %s, size = %s" % (arn_type, remaining, len(i)))
+            logger.debug("DEBUG: Appending %s ARN to tmp_list2. remaining variable = %s,\
+                    size = %s", arn_type, remaining, len(i))
             remaining = (remaining - len(i) - padding)
             tmp_list2.append(i)
         else:  # no room for additional arns
             tmp_list1.append(tmp_list2)
-            logger.debug("DEBUG: Appending %s ARN list to tmp_list1. remaining variable = %s" % (arn_type, remaining))
+            logger.debug("DEBUG: Appending %s ARN list to tmp_list1. remaining variable = %s",
+                         arn_type, remaining)
             tmp_list2 = []
             tmp_list2.append(i)  # add the current arn to the freshly emptied list_2
             remaining = (bytes_available - chars)
@@ -147,10 +149,11 @@ def generate_policy(s3buckets, objects=False):
 
     if len(tmp_list2) > 0:
         tmp_list1.append(tmp_list2)
-        logger.debug("DEBUG: Appending final %s ARN list to tmp_list1. remaining variable = %s" % (arn_type, remaining))
+        logger.debug("DEBUG: Appending final %s ARN list to tmp_list1. remaining variable = %s",
+                arn_type, remaining)
 
     for item in tmp_list1:
-        with open(filename) as handle:
+        with open(filename, encoding="utf-8") as handle:
             ipaas_policy = json.load(handle)
             ipaas_policy["Statement"][0]["Resource"] = item
         policies.append(ipaas_policy)
@@ -166,10 +169,8 @@ def detach_role_policy(role_name, policy_arn):
     response = ""  # Defining response outside the try/except due to pylint E0601
     try:
         response = iam.detach_role_policy(RoleName=role_name, PolicyArn=policy_arn)
-        logger.debug(
-            "detach_role_policy: Debug: Policy detached: %s from role %s"
-            % (policy_arn, role_name)
-        )
+        logger.debug("detach_role_policy: Debug: Policy detached: %s from role %s",
+                     policy_arn, role_name)
 
     except ClientError as error_client:
         logger.error(
@@ -201,7 +202,7 @@ def delete_policy(policy_arn):
                 PolicyArn=policy_arn, VersionId=policy_version["VersionId"]
             )
         response = iam.delete_policy(PolicyArn=policy_arn)
-        logger.debug("delete_policy: Debug: Policy deleted: %s" % policy_arn)
+        logger.debug("delete_policy: Debug: Policy deleted: %s", policy_arn)
 
     except ClientError as error_client:
         logger.error(
@@ -235,7 +236,7 @@ def create_policy(name, description, policy):
                 {"Key": "Charge_Code", "Value": "15445"},
             ],
         )
-        logger.debug("create_policy: Debug: Policy created: %s" % name)
+        logger.debug("create_policy: Debug: Policy created: %s", name)
 
     except ClientError as error_client:
         logger.error(
@@ -243,7 +244,7 @@ def create_policy(name, description, policy):
                 attempting s3.BucketTagging().tag_set in create_policy()"
         )
         logger.error("create_policy: Error: %s", error_client)
-        logger.error("Policy: %s" % policy)
+        logger.error("Policy: %s", policy)
         return (1, response)
     except Exception as error_exception:
         logger.error("create_policy: General Exception caught")
@@ -288,55 +289,68 @@ def lambda_handler(event, context):
             )
 
     count = 0
+    write_buckets_count = 0
+    write_objects_count = 0
     for buckets_policy, objects_policy in zip_longest(
         ipaas_write_buckets_policies, ipaas_write_objects_policies
     ):
         count += 1
         if buckets_policy is not None:
-            create_policy(
-                f"dis-managed-ipaas-write-buckets-policy-{count}",
-                "Write bucket policy for ipaas managed by \
-                                  dis lambda #{count}",
-                buckets_policy,
-            )
-            role.attach_policy(
-                PolicyArn=f"{policy_prefix}-write-buckets-policy-{count}"
-            )
+            write_buckets_count += 1
+            if write_buckets_count <= 10:
+                create_policy(
+                    f"dis-managed-ipaas-write-buckets-policy-{count}",
+                    "Write bucket policy for ipaas managed by dis lambda #{count}",
+                    buckets_policy,
+                )
+                role.attach_policy(PolicyArn=f"{policy_prefix}-write-buckets-policy-{count}")
+            else:
+                logger.error("ERROR: Policy count would exceed 10. No further write bucket policies\
+                        will be created. Suggest requesting a quota increase")
 
         if objects_policy is not None:
-            create_policy(
-                f"dis-managed-ipaas-write-objects-policy-{count}",
-                "Write objects policy for ipaas managed by \
-                                  dis lambda #{count}",
-                objects_policy,
-            )
-            role.attach_policy(
-                PolicyArn=f"{policy_prefix}-write-objects-policy-{count}"
-            )
+            if write_objects_count <= 10:
+                write_objects_count += 1
+                create_policy(
+                    f"dis-managed-ipaas-write-objects-policy-{count}",
+                    "Write objects policy for ipaas managed by dis lambda #{count}",
+                    objects_policy,
+                )
+                role.attach_policy(PolicyArn=f"{policy_prefix}-write-objects-policy-{count}")
+            else:
+                logger.error("ERROR: Policy count would exceed 10. No further write object policies\
+                        will be created. Suggest requesting a quota increase")
 
     # create & attach the new policies
-    # ToDo: we have a maximum quota of 10 policies that can be attached to a role - we should check we don't exceed this
-    # ToDo: and raise an alert telling the team to review, and request uplift to quota if required
     count = 0
+    read_buckets_count = 0
+    read_objects_count = 0
     for buckets_policy, objects_policy in zip_longest(
         ipaas_read_buckets_policies, ipaas_read_objects_policies
     ):
         count += 1
         if buckets_policy is not None:
-            create_policy(
-                f"dis-managed-ipaas-read-buckets-policy-{count}",
-                # "%s-read-buckets-policy-%s" % (policy_prefix, count),
-                "Read bucket policy for ipaas managed by \
-                                  dis lambda #{count}",
-                buckets_policy,
-            )
-            role.attach_policy(PolicyArn=f"{policy_prefix}-read-buckets-policy-{count}")
+            read_buckets_count += 1
+            if read_buckets_count <= 10:
+                create_policy(
+                    f"dis-managed-ipaas-read-buckets-policy-{count}",
+                    "Read bucket policy for ipaas managed by dis lambda #{count}",
+                    buckets_policy,
+                )
+                role.attach_policy(PolicyArn=f"{policy_prefix}-read-buckets-policy-{count}")
+            else:
+                logger.error("ERROR: Policy count would exceed 10. No further read bucket policies\
+                        will be created. Suggest requesting a quota increase")
+
         if objects_policy is not None:
-            create_policy(
-                f"dis-managed-ipaas-read-objects-policy-{count}",
-                # "%s-read-objects-policy-%s" % (policy_prefix, count),
-                "Read objects policy for ipaas managed by \
-                                  dis lambda #{count}",
-                buckets_policy,
-            )
-            role.attach_policy(PolicyArn=f"{policy_prefix}-read-objects-policy-{count}")
+            read_objects_count += 1
+            if read_objects_count <= 10:
+                create_policy(
+                    f"dis-managed-ipaas-read-objects-policy-{count}",
+                    "Read objects policy for ipaas managed by dis lambda #{count}",
+                    buckets_policy,
+                )
+                role.attach_policy(PolicyArn=f"{policy_prefix}-read-objects-policy-{count}")
+            else:
+                logger.error("ERROR: Policy count would exceed 10. No further read object policies\
+                        will be created. Suggest requesting a quota increase")
