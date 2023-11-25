@@ -93,7 +93,8 @@ def generate_policy(s3buckets, objects=False):
     objects.
 
     There is a hard limit of 6i44 Bytes (or 6k characters) for individual AWS policies
-     this module uses `getsizeof` to monitor the size of the policy string
+    this module monitors the size of the policy string by assessing the length of each
+    ARN before adding it. 
     see this page for detail https://repost.aws/knowledge-center/iam-increase-policy-size
 
     Returns a dictionary of policy ARNs
@@ -101,99 +102,60 @@ def generate_policy(s3buckets, objects=False):
 
     bytes_available = 5500       # Available bytes to be used by ARNs
     remaining = bytes_available  # Remaining bytes counter initially set to bytes_available and then decremented in the following loops 
+    
+    padding = 3                  # When assessing ARN length there is some additional unidentified characters added at some point. This variable
+                                 # causes the ARN to be assessed as longer than it is by whatever the variable value is. This allows us to use 
+                                 # 6144 as the bytes_available, in line with AWS policy limits, instead of an arbitrarily smaller value that
+                                 # would have no real meaning. 
+                                 # it might work =2 but does work =3
     """
-    # ipaas_policy S3 Objects template is 343 bytes when the dict is represented as a string
+
     policies = []
-    bytes_available = 5500       # Available bytes to be used by ARNs
-    remaining = bytes_available  # Remaining bytes counter initially set to bytes_available and then decremented in the following loops 
+    bytes_available = 6144       # Available bytes to be used by ARNs
+    padding = 3  # See docstring
+    
     if not objects:
+        filename = "buckets.json"
+        arn_type = "buckets"
         resource_list = generate_resource_list(s3buckets)
-        tmp_list1 = []  # list of correctly sized policy resources
-        tmp_list2 = (
-            []
-        )  # temporary list - test if the policy has exceeded the 6KB size has become too large
-
-        for i in resource_list:
-            if (remaining - len(i)) > 0:
-                remaining = (remaining - len(i))
-                tmp_list2.append(i)
-            else:  # no room for additional arns
-                tmp_list1.append(tmp_list2)
-                tmp_list2 = []
-                tmp_list2.append(i)  # add the current arn to the freshly emptied list_2
-                remaining = bytes_available
-                remaining = (remaining - len(i))
-
-        if len(tmp_list2) > 0:
-            tmp_list1.append(tmp_list2)
-
-        for item in tmp_list1:
-            ipaas_policy = {
-                "Version": "2012-10-17",
-                "Statement": [
-                    {
-                        "Sid": "AccountBucketPermissions",
-                        "Effect": "Allow",
-                        "Action": [
-                            "s3:PutLifecycleConfiguration",
-                            "s3:ListBucketMultipartUploads",
-                            "s3:ListBucket",
-                            "s3:GetLifecycleConfiguration",
-                            "s3:GetBucketLocation",
-                            "s3:PutLifecycleConfiguration",
-                        ],
-                        "Resource": item,
-                    },
-                ],
-            }
-            policies.append(ipaas_policy)
-
     else:
-        # ipaas_policy s3 buckets template is 364 bytes when the dict is represented as a string
+        filename = "objects.json"
+        arn_type = "objects"
         resource_list = generate_resource_list(s3buckets, objects=True)
-        tmp_list1 = []
-        tmp_list2 = []
 
-        for i in resource_list:
-            if (remaining - len(i)) > 0:
-                remaining = (remaining - len(i))
-                tmp_list2.append(i)
-            else:
-                tmp_list1.append(tmp_list2)
-                tmp_list2 = []
-                tmp_list2.append(i)
-                remaining = bytes_available
-                remaining = (remaining - len(i))
+    with open(filename) as handle:
+        data = handle.read()
+        whitespace = (data.count(" ") + data.count("\t") + data.count("\n"))
+        chars = (len(data) - whitespace)
+    
+    remaining = (bytes_available - chars)  # Remaining bytes counter initially set to bytes_available and then decremented in the following loops 
+    tmp_list1 = []  # list of correctly sized policy resources
+    tmp_list2 = []  # temporary list - test if the policy has exceeded the 6KB size has become too large
 
-        if len(tmp_list2) > 0:
+    for i in resource_list:
+        if (remaining - len(i) - padding) > 0:
+            logger.debug("DEBUG: Appending %s ARN to tmp_list2. remaining variable = %s, size = %s" % (arn_type, remaining, len(i)))
+            remaining = (remaining - len(i) - padding)
+            tmp_list2.append(i)
+        else:  # no room for additional arns
             tmp_list1.append(tmp_list2)
+            logger.debug("DEBUG: Appending %s ARN list to tmp_list1. remaining variable = %s" % (arn_type, remaining))
+            tmp_list2 = []
+            tmp_list2.append(i)  # add the current arn to the freshly emptied list_2
+            remaining = (bytes_available - chars)
+            remaining = (remaining - len(i) - padding)
 
-        for item in tmp_list1:
-            ipaas_policy = {
-                "Version": "2012-10-17",
-                "Statement": [
-                    {
-                        "Sid": "AccountObjectPermissions",
-                        "Effect": "Allow",
-                        "Action": [
-                            "s3:PutObjectAcl",
-                            "s3:PutObject",
-                            "s3:GetObjectVersionAcl",
-                            "s3:GetObjectVersion",
-                            "s3:GetObjectAcl",
-                            "s3:GetObject",
-                            "s3:DeleteObjectVersion",
-                            "s3:DeleteObject",
-                            "s3:AbortMultipartUpload",
-                        ],
-                        "Resource": item,
-                    },
-                ],
-            }
-            policies.append(ipaas_policy)
+    if len(tmp_list2) > 0:
+        tmp_list1.append(tmp_list2)
+        logger.debug("DEBUG: Appending final %s ARN list to tmp_list1. remaining variable = %s" % (arn_type, remaining))
+
+    for item in tmp_list1:
+        with open(filename) as handle:
+            ipaas_policy = json.load(handle)
+            ipaas_policy["Statement"][0]["Resource"] = item
+        policies.append(ipaas_policy)
 
     return policies
-
 
 def detach_role_policy(role_name, policy_arn):
     """detach_role_policy takes a role name and a policy ARN as parameters
@@ -281,6 +243,7 @@ def create_policy(name, description, policy):
                 attempting s3.BucketTagging().tag_set in create_policy()"
         )
         logger.error("create_policy: Error: %s", error_client)
+        logger.error("Policy: %s" % policy)
         return (1, response)
     except Exception as error_exception:
         logger.error("create_policy: General Exception caught")

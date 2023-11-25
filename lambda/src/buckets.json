@@ -1,0 +1,18 @@
+{
+	"Version": "2012-10-17",
+	"Statement": [
+		{
+			"Sid": "AccountBucketPermissions",
+			"Effect": "Allow",
+			"Action": [
+				"s3:PutLifecycleConfiguration",
+				"s3:ListBucketMultipartUploads",
+				"s3:ListBucket",
+				"s3:GetLifecycleConfiguration",
+				"s3:GetBucketLocation",
+				"s3:PutLifecycleConfiguration"
+			],
+			"Resource": []
+		}
+	]
+}
