@@ -5,7 +5,6 @@ output "S3_Storage_Account_AssumeRole_ARN" {
 }
 
 output "current_time" {
-  value = timestamp()
+  value       = timestamp()
   description = "Current time"
 }
-

@@ -4,13 +4,11 @@ s3 bucket and s3 object (files) access
 from itertools import zip_longest
 import logging
 import json
-
 import boto3
 from botocore.exceptions import ClientError
 
 s3 = boto3.resource("s3")
 buckets = s3.buckets.all()
-
 iam = boto3.client("iam")
 
 logger = logging.getLogger("dis-aws-cross-account-s3-access")
@@ -20,10 +18,10 @@ logger.setLevel(logging.INFO)
 # ToDo: review all docstrings - does our generated pydoc
 #  describe everything well enough?
 def get_buckets(s3buckets, rw_tag):
-    """get_buckets takes a list of s3 buckets and a rw_tag("read", "write")
-    as parameters, and returns all buckets that have a tag called
-    "ipaas_transfer_enabled".
+    """get_buckets takes a list of s3 buckets and attempts to fetch the TagSet (if the bucket has any tags attached)
 
+    For each bucket found, if the TagSet has the "ipaas_transfer_enabled" tag, with a value set to either 'read" or
+    "write", that buckets ARN is added to a dictionary called ipaas_buckets - ready for further processing.
     """
     ipaas_buckets = []
 
@@ -45,8 +43,11 @@ def get_buckets(s3buckets, rw_tag):
         for item in tag_set:
             if item["Key"] == "ipaas_transfer_enabled" and item["Value"] == rw_tag:
                 ipaas_buckets.append(bucket.name)
-                logger.debug("Debug: Bucket %s found with tag ipaas_transfer_enabled:%s",
-                             bucket.name, rw_tag)
+                logger.debug(
+                    "Debug: Bucket %s found with tag ipaas_transfer_enabled:%s",
+                    bucket.name,
+                    rw_tag,
+                )
 
     return ipaas_buckets
 
@@ -111,7 +112,7 @@ def generate_policy(s3buckets, objects=False):
     """
 
     policies = []
-    bytes_available = 6144       # Available bytes to be used by ARNs
+    bytes_available = 3000  # Available bytes to be used by ARNs (6144)
     padding = 3  # See docstring
 
     if not objects:
@@ -125,32 +126,43 @@ def generate_policy(s3buckets, objects=False):
 
     with open(filename, encoding="utf-8") as handle:
         data = handle.read()
-        whitespace = (data.count(" ") + data.count("\t") + data.count("\n"))
-        chars = (len(data) - whitespace)
+        whitespace = data.count(" ") + data.count("\t") + data.count("\n")
+        chars = len(data) - whitespace
 
-    remaining = (bytes_available - chars)
+    remaining = bytes_available - chars
     tmp_list1 = []  # list of correctly sized policy resources
     tmp_list2 = []  # temporary list to test if the policy will become too large
 
     for i in resource_list:
         if (remaining - len(i) - padding) > 0:
-            logger.debug("DEBUG: Appending %s ARN to tmp_list2. remaining variable = %s,\
-                    size = %s", arn_type, remaining, len(i))
-            remaining = (remaining - len(i) - padding)
+            logger.debug(
+                "DEBUG: Appending %s ARN to tmp_list2. remaining variable = %s,\
+                    size = %s",
+                arn_type,
+                remaining,
+                len(i),
+            )
+            remaining = remaining - len(i) - padding
             tmp_list2.append(i)
         else:  # no room for additional arns
             tmp_list1.append(tmp_list2)
-            logger.debug("DEBUG: Appending %s ARN list to tmp_list1. remaining variable = %s",
-                         arn_type, remaining)
+            logger.debug(
+                "DEBUG: Appending %s ARN list to tmp_list1. remaining variable = %s",
+                arn_type,
+                remaining,
+            )
             tmp_list2 = []
             tmp_list2.append(i)  # add the current arn to the freshly emptied list_2
-            remaining = (bytes_available - chars)
-            remaining = (remaining - len(i) - padding)
+            remaining = bytes_available - chars
+            remaining = remaining - len(i) - padding
 
     if len(tmp_list2) > 0:
         tmp_list1.append(tmp_list2)
-        logger.debug("DEBUG: Appending final %s ARN list to tmp_list1. remaining variable = %s",
-                arn_type, remaining)
+        logger.debug(
+            "DEBUG: Appending final %s ARN list to tmp_list1. remaining variable = %s",
+            arn_type,
+            remaining,
+        )
 
     for item in tmp_list1:
         with open(filename, encoding="utf-8") as handle:
@@ -159,6 +171,7 @@ def generate_policy(s3buckets, objects=False):
         policies.append(ipaas_policy)
 
     return policies
+
 
 def detach_role_policy(role_name, policy_arn):
     """detach_role_policy takes a role name and a policy ARN as parameters
@@ -169,8 +182,11 @@ def detach_role_policy(role_name, policy_arn):
     response = ""  # Defining response outside the try/except due to pylint E0601
     try:
         response = iam.detach_role_policy(RoleName=role_name, PolicyArn=policy_arn)
-        logger.debug("detach_role_policy: Debug: Policy detached: %s from role %s",
-                     policy_arn, role_name)
+        logger.debug(
+            "detach_role_policy: Debug: Policy detached: %s from role %s",
+            policy_arn,
+            role_name,
+        )
 
     except ClientError as error_client:
         logger.error(
@@ -303,10 +319,25 @@ def lambda_handler(event, context):
                     "Write bucket policy for ipaas managed by dis lambda #{count}",
                     buckets_policy,
                 )
-                role.attach_policy(PolicyArn=f"{policy_prefix}-write-buckets-policy-{count}")
+                try:
+                    role.attach_policy(
+                        PolicyArn=f"{policy_prefix}-write-buckets-policy-{count}"
+                    )
+                except ClientError as client_error:
+                    if (
+                        client_error.response["Error"]["Code"]
+                        == "LimitExceededException"
+                    ):
+                        logger.error(
+                            "ERROR: write_buckets: The number of Policies created has exceeded your AWS attached policy quota \
+                            Error: %s",
+                            client_error,
+                        )
             else:
-                logger.error("ERROR: Policy count would exceed 10. No further write bucket policies\
-                        will be created. Suggest requesting a quota increase")
+                logger.error(
+                    "ERROR: Policy count would exceed 10. No further write bucket policies\
+                        will be created. Suggest requesting a quota increase"
+                )
 
         if objects_policy is not None:
             if write_objects_count <= 10:
@@ -316,10 +347,25 @@ def lambda_handler(event, context):
                     "Write objects policy for ipaas managed by dis lambda #{count}",
                     objects_policy,
                 )
-                role.attach_policy(PolicyArn=f"{policy_prefix}-write-objects-policy-{count}")
+                try:
+                    role.attach_policy(
+                        PolicyArn=f"{policy_prefix}-write-objects-policy-{count}"
+                    )
+                except ClientError as client_error:
+                    if (
+                        client_error.response["Error"]["Code"]
+                        == "LimitExceededException"
+                    ):
+                        logger.error(
+                            "ERROR: write_objects_count: The number of Policies created has exceeded your AWS attached policy quota \
+                            Error: %s",
+                            client_error,
+                        )
             else:
-                logger.error("ERROR: Policy count would exceed 10. No further write object policies\
-                        will be created. Suggest requesting a quota increase")
+                logger.error(
+                    "ERROR: Policy count would exceed 10. No further write object policies\
+                        will be created. Suggest requesting a quota increase"
+                )
 
     # create & attach the new policies
     count = 0
@@ -337,10 +383,25 @@ def lambda_handler(event, context):
                     "Read bucket policy for ipaas managed by dis lambda #{count}",
                     buckets_policy,
                 )
-                role.attach_policy(PolicyArn=f"{policy_prefix}-read-buckets-policy-{count}")
+                try:
+                    role.attach_policy(
+                        PolicyArn=f"{policy_prefix}-read-buckets-policy-{count}"
+                    )
+                except ClientError as client_error:
+                    if (
+                        client_error.response["Error"]["Code"]
+                        == "LimitExceededException"
+                    ):
+                        logger.error(
+                            "ERROR: read_buckets_count: The number of Policies created has exceeded your AWS attached policy quota \
+                            Error: %s",
+                            client_error,
+                        )
             else:
-                logger.error("ERROR: Policy count would exceed 10. No further read bucket policies\
-                        will be created. Suggest requesting a quota increase")
+                logger.error(
+                    "ERROR: Policy count would exceed 10. No further read bucket policies\
+                        will be created. Suggest requesting a quota increase"
+                )
 
         if objects_policy is not None:
             read_objects_count += 1
@@ -350,7 +411,22 @@ def lambda_handler(event, context):
                     "Read objects policy for ipaas managed by dis lambda #{count}",
                     buckets_policy,
                 )
-                role.attach_policy(PolicyArn=f"{policy_prefix}-read-objects-policy-{count}")
+                try:
+                    role.attach_policy(
+                        PolicyArn=f"{policy_prefix}-read-objects-policy-{count}"
+                    )
+                except ClientError as client_error:
+                    if (
+                        client_error.response["Error"]["Code"]
+                        == "LimitExceededException"
+                    ):
+                        logger.error(
+                            "ERROR: read_objects_count: The number of Policies created has exceeded your AWS attached policy quota \
+                            Error: %s",
+                            client_error,
+                        )
             else:
-                logger.error("ERROR: Policy count would exceed 10. No further read object policies\
-                        will be created. Suggest requesting a quota increase")
+                logger.error(
+                    "ERROR: Policy count would exceed 10. No further read object policies\
+                        will be created. Suggest requesting a quota increase"
+                )

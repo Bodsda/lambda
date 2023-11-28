@@ -12,10 +12,10 @@
 
 | Name | Version |
 |------|---------|
-| <a name="provider_archive"></a> [archive](#provider\_archive) | n/a |
-| <a name="provider_aws.dis"></a> [aws.dis](#provider\_aws.dis) | ~> 5.0 |
-| <a name="provider_aws.dps"></a> [aws.dps](#provider\_aws.dps) | ~> 5.0 |
-| <a name="provider_null"></a> [null](#provider\_null) | n/a |
+| <a name="provider_archive"></a> [archive](#provider\_archive) | 2.4.0 |
+| <a name="provider_aws.dis"></a> [aws.dis](#provider\_aws.dis) | 5.26.0 |
+| <a name="provider_aws.dps"></a> [aws.dps](#provider\_aws.dps) | 5.26.0 |
+| <a name="provider_null"></a> [null](#provider\_null) | 3.2.2 |
 
 ## Modules
 
@@ -54,4 +54,5 @@ No modules.
 | Name | Description |
 |------|-------------|
 | <a name="output_S3_Storage_Account_AssumeRole_ARN"></a> [S3\_Storage\_Account\_AssumeRole\_ARN](#output\_S3\_Storage\_Account\_AssumeRole\_ARN) | The ARN of the S3 dis\_aws\_bucket\_role |
+| <a name="output_current_time"></a> [current\_time](#output\_current\_time) | Current time |
 <!-- END OF PRE-COMMIT-TERRAFORM DOCS HOOK -->
