@@ -161,7 +161,7 @@ terraform apply --var-file=./environments/kingfisherprod-org/dis-prod/disprod.tf
 
 | Name | Version |
 |------|---------|
-| <a name="provider_aws"></a> [aws](#provider\_aws) | 4.67.0 |
+| <a name="provider_aws"></a> [aws](#provider\_aws) | ~> 4.8 |
 
 ## Modules
 

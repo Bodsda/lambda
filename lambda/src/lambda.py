@@ -323,13 +323,15 @@ def lambda_handler(event, context):
                 role.attach_policy(
                     PolicyArn=f"{policy_prefix}-write-buckets-policy-{count}"
                 )
+                logger.error("Calling attach policy...")
             except ClientError as client_error:
-                if client_error.response["Error"]["Code"] == "LimitExceededException":
-                    logger.error(
-                        "ERROR: write_buckets: The number of Policies created has exceeded your AWS attached policy quota \
-                        Error: %s",
-                        client_error,
-                    )
+                logger.error("%s", client_error.response["Error"]["Code"])
+                # if client_error.response["Error"]["Code"] == "LimitExceeded":
+                #   logger.error(
+                #      "ERROR: write_buckets: The number of Policies created has exceeded your AWS attached policy quota \
+                #     Error: %s",
+                #    client_error,
+                # )
             # else:
             #     logger.error(
             #         "ERROR: Policy count would exceed 10. No further write bucket policies\
@@ -348,13 +350,15 @@ def lambda_handler(event, context):
                 role.attach_policy(
                     PolicyArn=f"{policy_prefix}-write-objects-policy-{count}"
                 )
+                logger.error("Calling attach policy...")
             except ClientError as client_error:
-                if client_error.response["Error"]["Code"] == "LimitExceededException":
-                    logger.error(
-                        "ERROR: write_objects_count: The number of Policies created has exceeded your AWS attached policy quota \
-                        Error: %s",
-                        client_error,
-                    )
+                logger.error("%s", client_error.response["Error"]["Code"])
+                # if client_error.response["Error"]["Code"] == "LimitExceeded":
+                #   logger.error(
+                #      "ERROR: write_objects_count: The number of Policies created has exceeded your AWS attached policy quota \
+                #     Error: %s",
+                #    client_error,
+                # )
             # else:
             #     logger.error(
             #         "ERROR: Policy count would exceed 10. No further write object policies\
@@ -371,7 +375,7 @@ def lambda_handler(event, context):
         count += 1
         if buckets_policy is not None:
             read_buckets_count += 1
-            # if read_buckets_count <= 10:
+            # if read_buckets_count <= 11:
             create_policy(
                 f"dis-managed-ipaas-read-buckets-policy-{count}",
                 "Read bucket policy for ipaas managed by dis lambda #{count}",
@@ -381,18 +385,20 @@ def lambda_handler(event, context):
                 role.attach_policy(
                     PolicyArn=f"{policy_prefix}-read-buckets-policy-{count}"
                 )
+                logger.error("Calling attach policy...")
             except ClientError as client_error:
-                if client_error.response["Error"]["Code"] == "LimitExceededException":
-                    logger.error(
-                        "ERROR: read_buckets_count: The number of Policies created has exceeded your AWS attached policy quota \
-                        Error: %s",
-                        client_error,
-                    )
+                logger.error("%s", client_error.response["Error"]["Code"])
+            # if client_error.response["Error"]["Code"] == "LimitExceeded":
+            #   logger.error(
+            #  "ERROR: read_buckets_count: The number of Policies created has exceeded your AWS attached policy quota \
+            #         Error: %s",
+            #        client_error,
+            #   )
             # else:
-            #     logger.error(
-            #         "ERROR: Policy count would exceed 10. No further read bucket policies\
-            #             will be created. Suggest requesting a quota increase"
-            #     )
+            #   logger.error(
+            #  "ERROR: Policy count would exceed 10. No further read bucket policies\
+            #      will be created. Suggest requesting a quota increase"
+            # )
 
         if objects_policy is not None:
             read_objects_count += 1
@@ -406,13 +412,15 @@ def lambda_handler(event, context):
                 role.attach_policy(
                     PolicyArn=f"{policy_prefix}-read-objects-policy-{count}"
                 )
+                logger.error("Calling attach policy...")
             except ClientError as client_error:
-                if client_error.response["Error"]["Code"] == "LimitExceededException":
-                    logger.error(
-                        "ERROR: read_objects_count: The number of Policies created has exceeded your AWS attached policy quota \
-                        Error: %s",
-                        client_error,
-                    )
+                logger.error("%s", client_error.response["Error"]["Code"])
+                # if client_error.response["Error"]["Code"] == "LimitExceeded":
+                #   logger.error(
+                #      "ERROR: read_objects_count: The number of Policies created has exceeded your AWS attached policy quota \
+                #     Error: %s",
+                #    client_error,
+                # )
             # else:
             #     logger.error(
             #         "ERROR: Policy count would exceed 10. No further read object policies\
