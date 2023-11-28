@@ -3,6 +3,7 @@
 .terraform*
 secrets/decrypted_secrets/
 lambda/src/package/**/*
+lambda/src/foobar.py
 !terraform-init/**/*.tfstate
 !terraform-init/**/*.tfstate.backup
 .DS_Store
