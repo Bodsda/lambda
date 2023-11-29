@@ -90,7 +90,7 @@ def generate_policy(s3buckets, objects=False):
     """generate_policy takes a list of s3 buckets and optionally a parameter
     to indicate if you want the resultant policy data to be for buckets or
     objects.
-    
+
     There is a hard limit of 6144 Bytes (or 6k characters) for individual AWS policies
     this module monitors the size of the policy string by assessing the length of each
     ARN before adding it.
@@ -283,27 +283,36 @@ def lambda_handler(event, context):
     role = resource.Role(role_name)
 
     # make lists
-    ipaas_policies_dict = {"write": {"objects": "", "buckets": ""},\
-            "read": {"objects": "", "buckets": ""}}
+    ipaas_policies_dict = {
+        "write": {"objects": "", "buckets": ""},
+        "read": {"objects": "", "buckets": ""},
+    }
 
     ipaas_write_buckets = get_buckets(buckets, "write")
     ipaas_policies_dict["write"]["buckets"] = generate_policy(ipaas_write_buckets)
-    ipaas_policies_dict["write"]["objects"] = generate_policy(ipaas_write_buckets, objects=True)
+    ipaas_policies_dict["write"]["objects"] = generate_policy(
+        ipaas_write_buckets, objects=True
+    )
 
     ipaas_read_buckets = get_buckets(buckets, "read")
     ipaas_policies_dict["read"]["buckets"] = generate_policy(ipaas_read_buckets)
-    ipaas_policies_dict["read"]["objects"] = generate_policy(ipaas_read_buckets, objects=True)
-
-
+    ipaas_policies_dict["read"]["objects"] = generate_policy(
+        ipaas_read_buckets, objects=True
+    )
 
     # iterate through the list of policies attached to the dis-s3-bucket-cross-account-access role
     attached_policies = get_role_policies(role_name, policy_prefix)
     for policy in attached_policies:
         policy_arn = next(iter(policy.values()))
-        if detach_role_policy(role_name, policy_arn) == 0:  # exit code from detach_role_policy()
+        if (
+            detach_role_policy(role_name, policy_arn) == 0
+        ):  # exit code from detach_role_policy()
             delete_policy(policy_arn)
         else:
-            logger.error("Detach role policy unsuccessful. Will not delete policy: %s.",policy_arn)
+            logger.error(
+                "Detach role policy unsuccessful. Will not delete policy: %s.",
+                policy_arn,
+            )
 
     for read_write in "read", "write":
         for buckets_objects in "buckets", "objects":
@@ -311,17 +320,30 @@ def lambda_handler(event, context):
             for policy in ipaas_policies_dict[read_write][buckets_objects]:
                 count += 1
                 if policy is not None:
-                    create_policy(f"dis-managed-ipaas-{read_write}-{buckets_objects}-policy-{count}",
-                    f"{read_write.capitalize()} {buckets_objects} policy for ipaas\
-                            managed by dis lambda #{count}", policy)
-                    policy_arn = f"{policy_prefix}-{read_write}-{buckets_objects}-policy-{count}"
-                    logger.debug("attach_policy: Debug: Policy attach attempted: %s", policy_arn)
+                    create_policy(
+                        f"dis-managed-ipaas-{read_write}-{buckets_objects}-policy-{count}",
+                        f"{read_write.capitalize()} {buckets_objects} policy for ipaas\
+                            managed by dis lambda #{count}",
+                        policy,
+                    )
+                    policy_arn = (
+                        f"{policy_prefix}-{read_write}-{buckets_objects}-policy-{count}"
+                    )
+                    logger.debug(
+                        "attach_policy: Debug: Policy attach attempted: %s", policy_arn
+                    )
                     try:
                         role.attach_policy(PolicyArn=policy_arn)
                     except ClientError as error_client:
-                        logger.error("attach_policy: ClientError from botocore.exceptions raised\
-                                when attempting role.attach_policy. Error: %s", error_client)
+                        logger.error(
+                            "attach_policy: ClientError from botocore.exceptions raised\
+                                when attempting role.attach_policy. Error: %s",
+                            error_client,
+                        )
                         if error_client.response["Error"]["Code"] == "LimitExceeded":
-                            logger.error("attach_policy: Error occurred when attempting to attach\
+                            logger.error(
+                                "attach_policy: Error occurred when attempting to attach\
                                     too  many policies. Increase role policy quota. Policy ARN:\
-                                    %s",policy_arn)
+                                    %s",
+                                policy_arn,
+                            )
