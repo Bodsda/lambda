@@ -348,3 +348,5 @@ def lambda_handler(event, context):
                                     %s",
                                 policy_arn,
                             )
+
+    logger.info("Info: lambda script completed executing successfully.")
