@@ -1,7 +1,6 @@
 """Module to detach, delete and re-create permission policies for
 s3 bucket and s3 object (files) access
 """
-from itertools import zip_longest
 import logging
 import json
 import boto3
@@ -18,10 +17,12 @@ logger.setLevel(logging.INFO)
 # ToDo: review all docstrings - does our generated pydoc
 #  describe everything well enough?
 def get_buckets(s3buckets, rw_tag):
-    """get_buckets takes a list of s3 buckets and attempts to fetch the TagSet (if the bucket has any tags attached)
+    """get_buckets takes a list of s3 buckets and attempts to fetch the TagSet (if the bucket has
+    any tags attached)
 
-    For each bucket found, if the TagSet has the "ipaas_transfer_enabled" tag, with a value set to either 'read" or
-    "write", that buckets ARN is added to a dictionary called ipaas_buckets - ready for further processing.
+    For each bucket found, if the TagSet has the "ipaas_transfer_enabled" tag, with a value set to
+    either 'read" or "write", that buckets ARN is added to a dictionary called ipaas_buckets -
+    ready for further processing.
     """
     ipaas_buckets = []
 
@@ -89,8 +90,8 @@ def generate_policy(s3buckets, objects=False):
     """generate_policy takes a list of s3 buckets and optionally a parameter
     to indicate if you want the resultant policy data to be for buckets or
     objects.
-
-    There is a hard limit of 6i44 Bytes (or 6k characters) for individual AWS policies
+    
+    There is a hard limit of 6144 Bytes (or 6k characters) for individual AWS policies
     this module monitors the size of the policy string by assessing the length of each
     ARN before adding it.
     see this page for detail https://repost.aws/knowledge-center/iam-increase-policy-size
@@ -112,7 +113,7 @@ def generate_policy(s3buckets, objects=False):
     """
 
     policies = []
-    bytes_available = 3000  # Available bytes to be used by ARNs (6144)
+    bytes_available = 2000  # Available bytes to be used by ARNs (6144)
     padding = 3  # See docstring
 
     if not objects:
@@ -136,7 +137,7 @@ def generate_policy(s3buckets, objects=False):
     for i in resource_list:
         if (remaining - len(i) - padding) > 0:
             logger.debug(
-                "DEBUG: Appending %s ARN to tmp_list2. remaining variable = %s,\
+                "Debug: Appending %s ARN to tmp_list2. remaining variable = %s,\
                     size = %s",
                 arn_type,
                 remaining,
@@ -147,7 +148,7 @@ def generate_policy(s3buckets, objects=False):
         else:  # no room for additional arns
             tmp_list1.append(tmp_list2)
             logger.debug(
-                "DEBUG: Appending %s ARN list to tmp_list1. remaining variable = %s",
+                "Debug: Appending %s ARN list to tmp_list1. remaining variable = %s",
                 arn_type,
                 remaining,
             )
@@ -159,7 +160,7 @@ def generate_policy(s3buckets, objects=False):
     if len(tmp_list2) > 0:
         tmp_list1.append(tmp_list2)
         logger.debug(
-            "DEBUG: Appending final %s ARN list to tmp_list1. remaining variable = %s",
+            "Debug: Appending final %s ARN list to tmp_list1. remaining variable = %s",
             arn_type,
             remaining,
         )
@@ -191,7 +192,7 @@ def detach_role_policy(role_name, policy_arn):
     except ClientError as error_client:
         logger.error(
             "detach_role_policy: ClientError from botocore.exceptions raised when \
-                attempting s3.BucketTagging().tag_set in detach_role_policy()"
+                attempting iam.detach_role_policy in detach_role_policy()"
         )
         logger.error("detach_role_policy: Error: detach_role_policy: %s", error_client)
         return (1, response)
@@ -223,7 +224,8 @@ def delete_policy(policy_arn):
     except ClientError as error_client:
         logger.error(
             "delete_policy: ClientError from botocore.exceptions raised when \
-                attempting s3.BucketTagging().tag_set in delete_policy()"
+                attempting iam.list_policy_version OR iam.delete_policy_version OR\
+                iam.delete_policy in delete_policy()"
         )
         logger.error("Error: delete_policy: %s", error_client)
         return (1, response)
@@ -257,7 +259,7 @@ def create_policy(name, description, policy):
     except ClientError as error_client:
         logger.error(
             "create_policy: ClientError from botocore.exceptions raised when \
-                attempting s3.BucketTagging().tag_set in create_policy()"
+                attempting iam.create_policy in create_policy()"
         )
         logger.error("create_policy: Error: %s", error_client)
         logger.error("Policy: %s", policy)
@@ -281,148 +283,45 @@ def lambda_handler(event, context):
     role = resource.Role(role_name)
 
     # make lists
+    ipaas_policies_dict = {"write": {"objects": "", "buckets": ""},\
+            "read": {"objects": "", "buckets": ""}}
+
     ipaas_write_buckets = get_buckets(buckets, "write")
-    ipaas_write_buckets_policies = generate_policy(ipaas_write_buckets)
-    ipaas_write_objects_policies = generate_policy(ipaas_write_buckets, objects=True)
+    ipaas_policies_dict["write"]["buckets"] = generate_policy(ipaas_write_buckets)
+    ipaas_policies_dict["write"]["objects"] = generate_policy(ipaas_write_buckets, objects=True)
 
     ipaas_read_buckets = get_buckets(buckets, "read")
-    ipaas_read_buckets_policies = generate_policy(ipaas_read_buckets)
-    ipaas_read_objects_policies = generate_policy(ipaas_read_buckets, objects=True)
+    ipaas_policies_dict["read"]["buckets"] = generate_policy(ipaas_read_buckets)
+    ipaas_policies_dict["read"]["objects"] = generate_policy(ipaas_read_buckets, objects=True)
+
+
 
     # iterate through the list of policies attached to the dis-s3-bucket-cross-account-access role
     attached_policies = get_role_policies(role_name, policy_prefix)
     for policy in attached_policies:
         policy_arn = next(iter(policy.values()))
-        if (
-            detach_role_policy(role_name, policy_arn) == 0
-        ):  # success code returned by detach_role_policy function
+        if detach_role_policy(role_name, policy_arn) == 0:  # exit code from detach_role_policy()
             delete_policy(policy_arn)
         else:
-            logger.error(
-                "Detach role policy unsuccessful. Will not delete \
-                    policy: %s.",
-                policy_arn,
-            )
+            logger.error("Detach role policy unsuccessful. Will not delete policy: %s.",policy_arn)
 
-    count = 0
-    write_buckets_count = 0
-    write_objects_count = 0
-    for buckets_policy, objects_policy in zip_longest(
-        ipaas_write_buckets_policies, ipaas_write_objects_policies
-    ):
-        count += 1
-        if buckets_policy is not None:
-            write_buckets_count += 1
-            # if write_buckets_count <= 10:
-            create_policy(
-                f"dis-managed-ipaas-write-buckets-policy-{count}",
-                "Write bucket policy for ipaas managed by dis lambda #{count}",
-                buckets_policy,
-            )
-            try:
-                role.attach_policy(
-                    PolicyArn=f"{policy_prefix}-write-buckets-policy-{count}"
-                )
-                logger.error("Calling attach policy...")
-            except ClientError as client_error:
-                logger.error("%s", client_error.response["Error"]["Code"])
-                # if client_error.response["Error"]["Code"] == "LimitExceeded":
-                #   logger.error(
-                #      "ERROR: write_buckets: The number of Policies created has exceeded your AWS attached policy quota \
-                #     Error: %s",
-                #    client_error,
-                # )
-            # else:
-            #     logger.error(
-            #         "ERROR: Policy count would exceed 10. No further write bucket policies\
-            #             will be created. Suggest requesting a quota increase"
-            #     )
-
-        if objects_policy is not None:
-            # if write_objects_count <= 10:
-            write_objects_count += 1
-            create_policy(
-                f"dis-managed-ipaas-write-objects-policy-{count}",
-                "Write objects policy for ipaas managed by dis lambda #{count}",
-                objects_policy,
-            )
-            try:
-                role.attach_policy(
-                    PolicyArn=f"{policy_prefix}-write-objects-policy-{count}"
-                )
-                logger.error("Calling attach policy...")
-            except ClientError as client_error:
-                logger.error("%s", client_error.response["Error"]["Code"])
-                # if client_error.response["Error"]["Code"] == "LimitExceeded":
-                #   logger.error(
-                #      "ERROR: write_objects_count: The number of Policies created has exceeded your AWS attached policy quota \
-                #     Error: %s",
-                #    client_error,
-                # )
-            # else:
-            #     logger.error(
-            #         "ERROR: Policy count would exceed 10. No further write object policies\
-            #             will be created. Suggest requesting a quota increase"
-            #     )
-
-    # create & attach the new policies
-    count = 0
-    read_buckets_count = 0
-    read_objects_count = 0
-    for buckets_policy, objects_policy in zip_longest(
-        ipaas_read_buckets_policies, ipaas_read_objects_policies
-    ):
-        count += 1
-        if buckets_policy is not None:
-            read_buckets_count += 1
-            # if read_buckets_count <= 11:
-            create_policy(
-                f"dis-managed-ipaas-read-buckets-policy-{count}",
-                "Read bucket policy for ipaas managed by dis lambda #{count}",
-                buckets_policy,
-            )
-            try:
-                role.attach_policy(
-                    PolicyArn=f"{policy_prefix}-read-buckets-policy-{count}"
-                )
-                logger.error("Calling attach policy...")
-            except ClientError as client_error:
-                logger.error("%s", client_error.response["Error"]["Code"])
-            # if client_error.response["Error"]["Code"] == "LimitExceeded":
-            #   logger.error(
-            #  "ERROR: read_buckets_count: The number of Policies created has exceeded your AWS attached policy quota \
-            #         Error: %s",
-            #        client_error,
-            #   )
-            # else:
-            #   logger.error(
-            #  "ERROR: Policy count would exceed 10. No further read bucket policies\
-            #      will be created. Suggest requesting a quota increase"
-            # )
-
-        if objects_policy is not None:
-            read_objects_count += 1
-            # if read_objects_count <= 10:
-            create_policy(
-                f"dis-managed-ipaas-read-objects-policy-{count}",
-                "Read objects policy for ipaas managed by dis lambda #{count}",
-                buckets_policy,
-            )
-            try:
-                role.attach_policy(
-                    PolicyArn=f"{policy_prefix}-read-objects-policy-{count}"
-                )
-                logger.error("Calling attach policy...")
-            except ClientError as client_error:
-                logger.error("%s", client_error.response["Error"]["Code"])
-                # if client_error.response["Error"]["Code"] == "LimitExceeded":
-                #   logger.error(
-                #      "ERROR: read_objects_count: The number of Policies created has exceeded your AWS attached policy quota \
-                #     Error: %s",
-                #    client_error,
-                # )
-            # else:
-            #     logger.error(
-            #         "ERROR: Policy count would exceed 10. No further read object policies\
-            #             will be created. Suggest requesting a quota increase"
-            #     )
+    for read_write in "read", "write":
+        for buckets_objects in "buckets", "objects":
+            count = 0
+            for policy in ipaas_policies_dict[read_write][buckets_objects]:
+                count += 1
+                if policy is not None:
+                    create_policy(f"dis-managed-ipaas-{read_write}-{buckets_objects}-policy-{count}",
+                    f"{read_write.capitalize()} {buckets_objects} policy for ipaas\
+                            managed by dis lambda #{count}", policy)
+                    policy_arn = f"{policy_prefix}-{read_write}-{buckets_objects}-policy-{count}"
+                    logger.debug("attach_policy: Debug: Policy attach attempted: %s", policy_arn)
+                    try:
+                        role.attach_policy(PolicyArn=policy_arn)
+                    except ClientError as error_client:
+                        logger.error("attach_policy: ClientError from botocore.exceptions raised\
+                                when attempting role.attach_policy. Error: %s", error_client)
+                        if error_client.response["Error"]["Code"] == "LimitExceeded":
+                            logger.error("attach_policy: Error occurred when attempting to attach\
+                                    too  many policies. Increase role policy quota. Policy ARN:\
+                                    %s",policy_arn)
