@@ -276,6 +276,7 @@ def lambda_handler(event, context):
     """lambda_handler is the main function and provides the execution order
     for the module.
     """
+    logger.debug("Debug: \n\nEVENT: %s\n\nCONTEXT: %s", event, context)
     resource = boto3.resource("iam")
     acc_id = boto3.client("sts").get_caller_identity().get("Account")
     policy_prefix = "arn:aws:iam::" + acc_id + ":policy/dis-managed-ipaas"
