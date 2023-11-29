@@ -6,6 +6,11 @@ import json
 import boto3
 from botocore.exceptions import ClientError
 
+policy_tags = [
+        {"Key": "Technical_Owner", "Value": "dis"},
+        {"Key": "Charge_Code", "Value": "15445"},
+        ]
+
 s3 = boto3.resource("s3")
 buckets = s3.buckets.all()
 iam = boto3.client("iam")
@@ -237,37 +242,42 @@ def delete_policy(policy_arn):
     return 0
 
 
-def create_policy(name, description, policy):
+def create_policy(name, description, policy, policy_arn):
     """create_policy takes a policy name, description, and policy data object
     (from generate_policy()) and creates a policy via iam.
 
     Returns 0 if successful.
     """
     response = ""  # Defining response outside the try/except due to pylint E0601
-    try:
-        response = iam.create_policy(
-            PolicyName=name,
-            PolicyDocument=json.dumps(policy),
-            Description=description,
-            Tags=[
-                {"Key": "Technical_Owner", "Value": "dis"},
-                {"Key": "Charge_Code", "Value": "15445"},
-            ],
-        )
-        logger.debug("create_policy: Debug: Policy created: %s", name)
+    while True:
+        try:
+            response = iam.create_policy(
+                PolicyName=name,
+                PolicyDocument=json.dumps(policy),
+                Description=description,
+                Tags=policy_tags
+            )
+            logger.debug("create_policy: Debug: Policy created: %s", name)
 
-    except ClientError as error_client:
-        logger.error(
-            "create_policy: ClientError from botocore.exceptions raised when \
-                attempting iam.create_policy in create_policy()"
-        )
-        logger.error("create_policy: Error: %s", error_client)
-        logger.error("Policy: %s", policy)
-        return (1, response)
-    except Exception as error_exception:
-        logger.error("create_policy: General Exception caught")
-        logger.error("create_policy: Error: %s", error_exception)
-        return (2, response)
+        except ClientError as error_client:
+            logger.error(
+                "create_policy: ClientError from botocore.exceptions raised when \
+                    attempting iam.create_policy in create_policy()"
+            )
+            logger.error("create_policy: Error: %s", error_client)
+            logger.error("Policy: %s", policy)
+            if error_client.response["Error"]["Code"] == "EntityAlreadyExists":
+                delete_policy(policy_arn)
+                logger.error("create_policy: Unattached policy found with duplicate name. Removing\
+                        unattached policy: %s", policy_arn)
+                continue
+
+        except Exception as error_exception:
+            logger.error("create_policy: General Exception caught")
+            logger.error("create_policy: Error: %s", error_exception)
+            return (2, response)
+        
+        break
 
     return 0
 
@@ -321,14 +331,14 @@ def lambda_handler(event, context):
             for policy in ipaas_policies_dict[read_write][buckets_objects]:
                 count += 1
                 if policy is not None:
+                    policy_arn = (
+                        f"{policy_prefix}-{read_write}-{buckets_objects}-policy-{count}"
+                    )
                     create_policy(
                         f"dis-managed-ipaas-{read_write}-{buckets_objects}-policy-{count}",
                         f"{read_write.capitalize()} {buckets_objects} policy for ipaas\
                             managed by dis lambda #{count}",
-                        policy,
-                    )
-                    policy_arn = (
-                        f"{policy_prefix}-{read_write}-{buckets_objects}-policy-{count}"
+                        policy, policy_arn
                     )
                     logger.debug(
                         "attach_policy: Debug: Policy attach attempted: %s", policy_arn
